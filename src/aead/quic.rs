@@ -207,6 +207,7 @@ fn new_mask(key: &KeyInner, sample: Sample) -> [u8; 5] {
             let cnt = u32::from_le_bytes(cnt);
 
             let mut cipher = ChaCha20::new(&key, &nonce.into());
+            cipher.set_block_pos(cnt);
 
             let mut block = Default::default();
             cipher.write_keystream_block(&mut block);
