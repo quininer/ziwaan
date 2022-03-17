@@ -21,11 +21,11 @@
 //! [AEAD]: http://www-cse.ucsd.edu/~mihir/papers/oem.html
 //! [`crypto.cipher.AEAD`]: https://golang.org/pkg/crypto/cipher/#AEAD
 
-use crate::{constant_time, error, hkdf, polyfill};
+use crate::{error, hkdf, polyfill};
 use core::ops::RangeFrom;
 
 pub use self::{
-//    aes_gcm::{AES_128_GCM, AES_256_GCM},
+    aes_gcm::{AES_128_GCM, AES_256_GCM},
     chacha20_poly1305::CHACHA20_POLY1305,
     nonce::{Nonce, NONCE_LEN},
 };
@@ -649,21 +649,9 @@ fn check_per_nonce_max_bytes(alg: &Algorithm, in_out_len: usize) -> Result<(), e
     Ok(())
 }
 
-#[derive(Clone, Copy)]
-enum Direction {
-    Opening { in_prefix_len: usize },
-    Sealing,
-}
-
-// mod aes;
 mod aes_gcm;
-// mod chacha;
 mod chacha20_poly1305;
 // pub mod chacha20_poly1305_openssh;
-// mod counter;
-// mod gcm;
 mod iv;
 mod nonce;
-// mod poly1305;
 pub mod quic;
-// mod shift;
