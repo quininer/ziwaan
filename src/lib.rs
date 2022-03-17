@@ -20,6 +20,7 @@ pub mod digest;
 pub mod hmac;
 pub mod hkdf;
 pub mod io;
+pub mod pbkdf2;
 
 mod sealed {
     /// Traits that are designed to only be implemented internally in *ring*.
