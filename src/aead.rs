@@ -392,7 +392,7 @@ impl core::fmt::Debug for UnboundKey {
 
 #[allow(clippy::large_enum_variant, variant_size_differences)]
 enum KeyInner {
-    // AesGcm(aes_gcm::Key),
+    AesGcm(aes_gcm::Key),
     ChaCha20Poly1305(chacha20_poly1305::Key),
 }
 
@@ -658,13 +658,13 @@ enum Direction {
 }
 
 // mod aes;
-// mod aes_gcm;
+mod aes_gcm;
 // mod chacha;
 mod chacha20_poly1305;
 // pub mod chacha20_poly1305_openssh;
 // mod counter;
 // mod gcm;
-// mod iv;
+mod iv;
 mod nonce;
 // mod poly1305;
 // pub mod quic;

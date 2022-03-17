@@ -12,9 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::{
-    Aad, Nonce, Tag, BLOCK_LEN,
-};
+use super::{ Aad, Nonce, Tag, BLOCK_LEN };
 use crate::error;
 use crate::aead::{ KeyInner, Algorithm, AlgorithmID };
 use core::convert::TryInto;
