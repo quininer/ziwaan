@@ -41,8 +41,8 @@ pub static AES_256_GCM: Algorithm = Algorithm {
 };
 
 pub enum Key {
-    Aes128(aes_gcm::Key<<Aes128Gcm as NewAead>::KeySize>),
-    Aes256(aes_gcm::Key<<Aes256Gcm as NewAead>::KeySize>)
+    Aes128(Aes128Gcm),
+    Aes256(Aes256Gcm)
 }
 
 const AES_128_KEY_LEN: usize = <<Aes128Gcm as aead::NewAead>::KeySize as Unsigned>::USIZE;
@@ -50,12 +50,14 @@ const AES_256_KEY_LEN: usize = <<Aes256Gcm as aead::NewAead>::KeySize as Unsigne
 
 fn init_128(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
     let key: [u8; AES_128_KEY_LEN] = key.try_into()?;
-    Ok(KeyInner::AesGcm(Key::Aes128(key.into())))
+    let key: aes_gcm::Key<<Aes128Gcm as NewAead>::KeySize> = key.into();
+    Ok(KeyInner::AesGcm(Key::Aes128(Aes128Gcm::new(&key))))
 }
 
 fn init_256(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
     let key: [u8; AES_256_KEY_LEN] = key.try_into()?;
-    Ok(KeyInner::AesGcm(Key::Aes256(key.into())))
+    let key: aes_gcm::Key<<Aes256Gcm as NewAead>::KeySize> = key.into();
+    Ok(KeyInner::AesGcm(Key::Aes256(Aes256Gcm::new(&key))))
 }
 
 const CHUNK_BLOCKS: usize = 3 * 1024 / 16;
@@ -67,16 +69,14 @@ fn aes_gcm_seal(
     in_out: &mut [u8],
 ) -> Result<Tag, error::Unspecified> {
     match key {
-        KeyInner::AesGcm(Key::Aes128(key)) => {
-            let cipher = Aes128Gcm::new(key);
+        KeyInner::AesGcm(Key::Aes128(cipher)) => {
             let nonce = <aead::Nonce<Aes128Gcm>>::from(*nonce.as_ref());
 
             cipher.encrypt_in_place_detached(&nonce, aad, in_out)
                 .map(|tag| Tag(tag.into()))
                 .map_err(|_| error::Unspecified)
         },
-        KeyInner::AesGcm(Key::Aes256(key)) => {
-            let cipher = Aes256Gcm::new(key);
+        KeyInner::AesGcm(Key::Aes256(cipher)) => {
             let nonce = <aead::Nonce<Aes256Gcm>>::from(*nonce.as_ref());
 
             cipher.encrypt_in_place_detached(&nonce, aad, in_out)
@@ -96,16 +96,14 @@ fn aes_gcm_open(
     tag: &Tag
 ) -> Result<(), error::Unspecified> {
     match key {
-        KeyInner::AesGcm(Key::Aes128(key)) => {
-            let cipher = Aes128Gcm::new(key);
+        KeyInner::AesGcm(Key::Aes128(cipher)) => {
             let nonce = <aead::Nonce<Aes128Gcm>>::from(*nonce.as_ref());
             let tag = <aead::Tag<Aes128Gcm>>::from(tag.0);
 
             cipher.decrypt_in_place_detached(&nonce, aad, &mut in_out[in_prefix_len..], &tag)
                 .map_err(|_| error::Unspecified)
         },
-        KeyInner::AesGcm(Key::Aes256(key)) => {
-            let cipher = Aes256Gcm::new(key);
+        KeyInner::AesGcm(Key::Aes256(cipher)) => {
             let nonce = <aead::Nonce<Aes256Gcm>>::from(*nonce.as_ref());
             let tag = <aead::Tag<Aes256Gcm>>::from(tag.0);
 

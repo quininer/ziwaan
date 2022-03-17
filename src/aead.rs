@@ -667,5 +667,5 @@ mod chacha20_poly1305;
 mod iv;
 mod nonce;
 // mod poly1305;
-// pub mod quic;
+pub mod quic;
 // mod shift;

@@ -32,7 +32,7 @@ extern crate std;
 /// described in [“Error Handling” in the Rust Book]:
 ///
 /// ```
-/// use ring::rand::{self, SecureRandom};
+/// use ziwaan::rand::{self, SecureRandom};
 ///
 /// enum Error {
 ///     CryptoError,
@@ -42,15 +42,15 @@ extern crate std;
 ///     // [...]
 /// }
 ///
-/// impl From<ring::error::Unspecified> for Error {
-///     fn from(_: ring::error::Unspecified) -> Self { Error::CryptoError }
+/// impl From<ziwaan::error::Unspecified> for Error {
+///     fn from(_: ziwaan::error::Unspecified) -> Self { Error::CryptoError }
 /// }
 ///
 /// fn eight_random_bytes() -> Result<[u8; 8], Error> {
 ///     let rng = rand::SystemRandom::new();
 ///     let mut bytes = [0; 8];
 ///
-///     // The `From<ring::error::Unspecified>` implementation above makes this
+///     // The `From<ziwaan::error::Unspecified>` implementation above makes this
 ///     // equivalent to
 ///     // `rng.fill(&mut bytes).map_err(|_| Error::CryptoError)?`.
 ///     rng.fill(&mut bytes)?;
