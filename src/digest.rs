@@ -184,11 +184,11 @@ pub struct Algorithm {
     update: fn(hash: &mut HashInner, data: &[u8]),
     finish: fn(hash: HashInner) -> Output,
 
-    id: AlgorithmID,
+    pub(crate) id: AlgorithmID,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-enum AlgorithmID {
+pub(crate) enum AlgorithmID {
     SHA1,
     SHA256,
     SHA384,

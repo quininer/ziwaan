@@ -17,6 +17,7 @@ pub mod polyfill;
 pub mod rand;
 pub mod aead;
 pub mod digest;
+pub mod hmac;
 
 mod sealed {
     /// Traits that are designed to only be implemented internally in *ring*.
