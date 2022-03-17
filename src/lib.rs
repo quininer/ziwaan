@@ -6,11 +6,17 @@ extern crate alloc;
 #[macro_use]
 mod debug;
 
+#[macro_use]
+pub mod test;
+
+mod bits;
+
 pub mod error;
 pub mod constant_time;
 pub mod polyfill;
 pub mod rand;
 pub mod aead;
+pub mod digest;
 
 mod sealed {
     /// Traits that are designed to only be implemented internally in *ring*.
