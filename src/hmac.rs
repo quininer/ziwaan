@@ -109,7 +109,7 @@
 //! [code for `ring::hkdf`]:
 //!     https://github.com/briansmith/ring/blob/main/src/hkdf.rs
 
-use crate::{constant_time, digest, error, /* hkdf, */ rand};
+use crate::{constant_time, digest, error, hkdf, rand};
 use sha1::Sha1;
 use sha2::{ Digest as _, Sha256, Sha384, Sha512 };
 use hmac::{ Mac, Hmac };
@@ -282,7 +282,6 @@ impl Key {
     }
 }
 
-/*
 impl hkdf::KeyType for Algorithm {
     fn len(&self) -> usize {
         self.digest_algorithm().output_len
@@ -294,7 +293,6 @@ impl From<hkdf::Okm<'_, Algorithm>> for Key {
         Key::construct(*okm.len(), |buf| okm.fill(buf)).unwrap()
     }
 }
-*/
 
 /// A context for multi-step (Init-Update-Finish) HMAC signing.
 ///

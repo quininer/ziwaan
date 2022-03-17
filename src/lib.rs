@@ -18,6 +18,7 @@ pub mod rand;
 pub mod aead;
 pub mod digest;
 pub mod hmac;
+pub mod hkdf;
 
 mod sealed {
     /// Traits that are designed to only be implemented internally in *ring*.
