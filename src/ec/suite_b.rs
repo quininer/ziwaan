@@ -14,5 +14,6 @@
 
 //! Elliptic curve operations on P-256 & P-384.
 
+// mod curve;
 // pub mod ecdh;
 // pub mod ecdsa;

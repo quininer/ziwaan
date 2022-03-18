@@ -59,4 +59,4 @@ pub const PKCS8_DOCUMENT_MAX_LEN: usize = 40 + SCALAR_MAX_BYTES + keys::PUBLIC_K
 
 pub mod curve25519;
 mod keys;
-// pub mod suite_b;
+pub mod suite_b;
