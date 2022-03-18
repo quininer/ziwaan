@@ -21,7 +21,7 @@
 //! `agreement::ECDH_P256`/`agreement::ECDH_P384` for `agreement::X25519`.
 //!
 //! ```
-//! use ring::{agreement, rand};
+//! use ziwaan::{agreement, rand};
 //!
 //! let rng = rand::SystemRandom::new();
 //!
@@ -47,7 +47,7 @@
 //! agreement::agree_ephemeral(
 //!     my_private_key,
 //!     &peer_public_key,
-//!     ring::error::Unspecified,
+//!     ziwaan::error::Unspecified,
 //!     |_key_material| {
 //!         // In a real application, we'd apply a KDF to the key material and the
 //!         // public keys (as recommended in RFC 7748) and then derive session
@@ -56,7 +56,7 @@
 //!     },
 //! )?;
 //!
-//! # Ok::<(), ring::error::Unspecified>(())
+//! # Ok::<(), ziwaan::error::Unspecified>(())
 //! ```
 
 // The "NSA Guide" steps here are from from section 3.1, "Ephemeral Unified
@@ -65,7 +65,7 @@
 use crate::{debug, ec, error, rand};
 
 pub use crate::ec::{
-//    curve25519::x25519::X25519,
+    curve25519::x25519::X25519,
 //    suite_b::ecdh::{ECDH_P256, ECDH_P384},
 };
 
@@ -108,13 +108,11 @@ impl EphemeralPrivateKey {
         alg: &'static Algorithm,
         rng: &dyn rand::SecureRandom,
     ) -> Result<Self, error::Unspecified> {
-        let cpu_features = cpu::features();
-
         // NSA Guide Step 1.
         //
         // This only handles the key generation part of step 1. The rest of
         // step one is done by `compute_public_key()`.
-        let private_key = ec::Seed::generate(&alg.curve, rng, cpu_features)?;
+        let private_key = ec::Seed::generate(&alg.curve, rng)?;
         Ok(Self {
             private_key,
             algorithm: alg,
