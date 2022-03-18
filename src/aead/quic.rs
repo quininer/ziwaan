@@ -16,7 +16,7 @@
 //!
 //! See draft-ietf-quic-tls.
 
-use crate::error;
+use crate::{ error, hkdf };
 use core::convert::{TryFrom, TryInto};
 use aes::{ cipher, Aes128Enc, Aes256Enc };
 use chacha20::ChaChaCore;
@@ -35,7 +35,6 @@ enum KeyInner {
     ChaCha20(chacha20::Key),
 }
 
-/*
 impl From<hkdf::Okm<'_, &'static Algorithm>> for HeaderProtectionKey {
     fn from(okm: hkdf::Okm<&'static Algorithm>) -> Self {
         let mut key_bytes = [0; super::MAX_KEY_LEN];
@@ -45,7 +44,6 @@ impl From<hkdf::Okm<'_, &'static Algorithm>> for HeaderProtectionKey {
         Self::new(algorithm, key_bytes).unwrap()
     }
 }
-*/
 
 impl HeaderProtectionKey {
     /// Create a new header protection key.
@@ -93,14 +91,12 @@ pub struct Algorithm {
     id: AlgorithmID,
 }
 
-/*
 impl hkdf::KeyType for &'static Algorithm {
     #[inline]
     fn len(&self) -> usize {
         self.key_len()
     }
 }
-*/
 
 impl Algorithm {
     /// The length of the key.
@@ -153,15 +149,15 @@ const AES_128_KEY_LEN: usize = <<Aes128Enc as cipher::KeySizeUser>::KeySize as c
 const AES_256_KEY_LEN: usize = <<Aes256Enc as cipher::KeySizeUser>::KeySize as cipher::Unsigned>::USIZE;
 
 fn aes_init_128(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
-    let key: [u8; AES_128_KEY_LEN] = key.try_into()?;
-    let key: cipher::Key<Aes128Enc> = key.into();
-    Ok(KeyInner::Aes128(Aes128Enc::new(&key)))
+    let key: &[u8; AES_128_KEY_LEN] = key.try_into()?;
+    let key = <cipher::Key<Aes128Enc>>::from_slice(key);
+    Ok(KeyInner::Aes128(Aes128Enc::new(key)))
 }
 
 fn aes_init_256(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
-    let key: [u8; AES_256_KEY_LEN] = key.try_into()?;
-    let key: cipher::Key<Aes256Enc> = key.into();
-    Ok(KeyInner::Aes256(Aes256Enc::new(&key)))
+    let key: &[u8; AES_256_KEY_LEN] = key.try_into()?;
+    let key = <cipher::Key<Aes256Enc>>::from_slice(key);
+    Ok(KeyInner::Aes256(Aes256Enc::new(key)))
 }
 
 /// ChaCha20.

@@ -15,16 +15,29 @@ wasm32_c = []
 [dependencies]
 untrusted = "0.7"
 
-fiat-crypto = "0.1"
+# aead
 aes = "0.8"
 chacha20 = "0.9"
 chacha20poly1305 = "0.9"
 aes-gcm = "0.9"
 aead = "0.4"
+
+# digest
 sha1 = "0.10"
 sha2 = "0.10"
 hmac = "0.12"
 pbkdf2 = "0.10"
+
+# agreement & signature
+curve25519-dalek = "3"
+ed25519-dalek = "1"
+x25519-dalek = "1"
+p256 = "0.10"
+p384 = "0.9"
+ed25519 = "1"
+ecdsa = "0.13"
 rsa = "0.5"
+
+# util
 getrandom = "0.2"
 subtle = "2"

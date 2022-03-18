@@ -49,15 +49,15 @@ const AES_128_KEY_LEN: usize = <<Aes128Gcm as aead::NewAead>::KeySize as Unsigne
 const AES_256_KEY_LEN: usize = <<Aes256Gcm as aead::NewAead>::KeySize as Unsigned>::USIZE;
 
 fn init_128(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
-    let key: [u8; AES_128_KEY_LEN] = key.try_into()?;
-    let key: aes_gcm::Key<<Aes128Gcm as NewAead>::KeySize> = key.into();
-    Ok(KeyInner::AesGcm(Key::Aes128(Aes128Gcm::new(&key))))
+    let key: &[u8; AES_128_KEY_LEN] = key.try_into()?;
+    let key = aes_gcm::Key::from_slice(key);
+    Ok(KeyInner::AesGcm(Key::Aes128(Aes128Gcm::new(key))))
 }
 
 fn init_256(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
-    let key: [u8; AES_256_KEY_LEN] = key.try_into()?;
-    let key: aes_gcm::Key<<Aes256Gcm as NewAead>::KeySize> = key.into();
-    Ok(KeyInner::AesGcm(Key::Aes256(Aes256Gcm::new(&key))))
+    let key: &[u8; AES_256_KEY_LEN] = key.try_into()?;
+    let key = aes_gcm::Key::from_slice(key);
+    Ok(KeyInner::AesGcm(Key::Aes256(Aes256Gcm::new(key))))
 }
 
 const CHUNK_BLOCKS: usize = 3 * 1024 / 16;
