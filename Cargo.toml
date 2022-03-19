@@ -32,7 +32,11 @@ pbkdf2 = "0.10"
 curve25519-dalek = "3"
 ed25519-dalek = "1"
 x25519-dalek = "1"
-fiat-crypto = "0.1"
+p256 = "0.10"
+p384 = "0.9"
+elliptic-curve = { version = "0.11", features = [ "ecdh" ] }
+ed25519 = "1"
+ecdsa = "0.13"
 rsa = "0.5"
 
 # util

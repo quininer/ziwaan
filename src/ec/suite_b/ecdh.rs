@@ -14,13 +14,11 @@
 
 //! ECDH key agreement using the P-256 and P-384 curves.
 
-use super::{ops::*, private_key::*, public_key::*};
 use crate::{agreement, ec, error};
 
 /// A key agreement algorithm.
 macro_rules! ecdh {
-    ( $NAME:ident, $curve:expr, $name_str:expr, $private_key_ops:expr,
-      $public_key_ops:expr, $ecdh:ident ) => {
+    ( $NAME:ident, $curve:expr, $name_str:expr, $ecdh:ident ) => {
         #[doc = "ECDH using the NSA Suite B"]
         #[doc=$name_str]
         #[doc = "curve."]
@@ -42,20 +40,6 @@ macro_rules! ecdh {
             curve: $curve,
             ecdh: $ecdh,
         };
-
-        fn $ecdh(
-            out: &mut [u8],
-            my_private_key: &ec::Seed,
-            peer_public_key: untrusted::Input,
-        ) -> Result<(), error::Unspecified> {
-            ecdh(
-                $private_key_ops,
-                $public_key_ops,
-                out,
-                my_private_key,
-                peer_public_key,
-            )
-        }
     };
 }
 
@@ -63,174 +47,52 @@ ecdh!(
     ECDH_P256,
     &ec::suite_b::curve::P256,
     "P-256 (secp256r1)",
-    &p256::PRIVATE_KEY_OPS,
-    &p256::PUBLIC_KEY_OPS,
     p256_ecdh
 );
+
+fn p256_ecdh(
+    out: &mut [u8],
+    my_private_key: &ec::Seed,
+    peer_public_key: untrusted::Input,
+) -> Result<(), error::Unspecified> {
+    use elliptic_curve::sec1::{ EncodedPoint, FromEncodedPoint };
+
+    let my_private_key =
+        <elliptic_curve::SecretKey<p256::NistP256>>::from_be_bytes(&my_private_key.bytes_less_safe())
+            .map_err(|_| error::Unspecified)?;
+    let peer_public_key =
+        <EncodedPoint<p256::NistP256>>::from_bytes(peer_public_key.as_slice_less_safe())
+            .map_err(|_| error::Unspecified)?;
+    let peer_public_key: Option<elliptic_curve::PublicKey<p256::NistP256>> =
+        <elliptic_curve::PublicKey<p256::NistP256>>::from_encoded_point(&peer_public_key).into();
+    let peer_public_key = peer_public_key.ok_or(error::Unspecified)?;
+
+    let shared_secret = elliptic_curve::ecdh::diffie_hellman(
+        my_private_key.to_nonzero_scalar(),
+        peer_public_key.as_affine()
+    );
+    let secret_len = shared_secret.as_bytes().len();
+
+    if out.len() < secret_len {
+        return Err(error::Unspecified);
+    }
+
+    out[..secret_len].copy_from_slice(shared_secret.as_bytes().as_slice());
+
+    Ok(())
+}
 
 ecdh!(
     ECDH_P384,
     &ec::suite_b::curve::P384,
     "P-384 (secp384r1)",
-    &p384::PRIVATE_KEY_OPS,
-    &p384::PUBLIC_KEY_OPS,
     p384_ecdh
 );
 
-fn ecdh(
-    private_key_ops: &PrivateKeyOps,
-    public_key_ops: &PublicKeyOps,
+fn p384_ecdh(
     out: &mut [u8],
     my_private_key: &ec::Seed,
     peer_public_key: untrusted::Input,
 ) -> Result<(), error::Unspecified> {
-    // The NIST SP 800-56Ar2 steps are from section 5.7.1.2 Elliptic Curve
-    // Cryptography Cofactor Diffie-Hellman (ECC CDH) Primitive.
-    //
-    // The "NSA Guide" steps are from section 3.1 of the NSA guide, "Ephemeral
-    // Unified Model."
-
-    // NSA Guide Step 1 is handled separately.
-
-    // NIST SP 800-56Ar2 5.6.2.2.2.
-    // NSA Guide Step 2.
-    //
-    // `parse_uncompressed_point` verifies that the point is not at infinity
-    // and that it is on the curve, using the Partial Public-Key Validation
-    // Routine.
-    let peer_public_key = parse_uncompressed_point(public_key_ops, peer_public_key)?;
-
-    // NIST SP 800-56Ar2 Step 1.
-    // NSA Guide Step 3 (except point at infinity check).
-    //
-    // Note that the cofactor (h) is one since we only support prime-order
-    // curves, so we can safely ignore the cofactor.
-    //
-    // It is impossible for the result to be the point at infinity because our
-    // private key is in the range [1, n) and the curve has prime order and
-    // `parse_uncompressed_point` verified that the peer public key is on the
-    // curve and not at infinity. However, since the standards require the
-    // check, we do it using `assert!`.
-    //
-    // NIST SP 800-56Ar2 defines "Destroy" thusly: "In this Recommendation, to
-    // destroy is an action applied to a key or a piece of secret data. After
-    // a key or a piece of secret data is destroyed, no information about its
-    // value can be recovered." We interpret "destroy" somewhat liberally: we
-    // assume that since we throw away the values to be destroyed, no
-    // information about their values can be recovered. This doesn't meet the
-    // NSA guide's explicit requirement to "zeroize" them though.
-    // TODO: this only needs common scalar ops
-    let my_private_key = private_key_as_scalar(private_key_ops, my_private_key);
-    let product = private_key_ops.point_mul(&my_private_key, &peer_public_key);
-
-    // NIST SP 800-56Ar2 Steps 2, 3, 4, and 5.
-    // NSA Guide Steps 3 (point at infinity check) and 4.
-    //
-    // Again, we have a pretty liberal interpretation of the NIST's spec's
-    // "Destroy" that doesn't meet the NSA requirement to "zeroize."
-    // `big_endian_affine_from_jacobian` verifies that the result is not at
-    // infinity and also does an extra check to verify that the point is on
-    // the curve.
-    big_endian_affine_from_jacobian(private_key_ops, Some(out), None, &product)
-
-    // NSA Guide Step 5 & 6 are deferred to the caller. Again, we have a
-    // pretty liberal interpretation of the NIST's spec's "Destroy" that
-    // doesn't meet the NSA requirement to "zeroize."
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::ops;
-    use crate::{agreement, ec, limb, test};
-
-    static SUPPORTED_SUITE_B_ALGS: [(&str, &agreement::Algorithm, &ec::Curve, &ops::CommonOps); 2] = [
-        (
-            "P-256",
-            &agreement::ECDH_P256,
-            &super::super::curve::P256,
-            &super::super::ops::p256::COMMON_OPS,
-        ),
-        (
-            "P-384",
-            &agreement::ECDH_P384,
-            &super::super::curve::P384,
-            &super::super::ops::p384::COMMON_OPS,
-        ),
-    ];
-
-    #[test]
-    fn test_agreement_suite_b_ecdh_generate() {
-        // Generates a string of bytes 0x00...00, which will always result in
-        // a scalar value of zero.
-        let random_00 = test::rand::FixedByteRandom { byte: 0x00 };
-
-        // Generates a string of bytes 0xFF...FF, which will be larger than the
-        // group order of any curve that is supported.
-        let random_ff = test::rand::FixedByteRandom { byte: 0xff };
-
-        for &(_, alg, curve, ops) in SUPPORTED_SUITE_B_ALGS.iter() {
-            // Test that the private key value zero is rejected and that
-            // `generate` gives up after a while of only getting zeros.
-            assert!(agreement::EphemeralPrivateKey::generate(alg, &random_00).is_err());
-
-            // Test that the private key value larger than the group order is
-            // rejected and that `generate` gives up after a while of only
-            // getting values larger than the group order.
-            assert!(agreement::EphemeralPrivateKey::generate(alg, &random_ff).is_err());
-
-            // Test that a private key value exactly equal to the group order
-            // is rejected and that `generate` gives up after a while of only
-            // getting that value from the PRNG.
-            let mut n_bytes = [0u8; ec::SCALAR_MAX_BYTES];
-            let num_bytes = curve.elem_scalar_seed_len;
-            limb::big_endian_from_limbs(&ops.n.limbs[..ops.num_limbs], &mut n_bytes[..num_bytes]);
-            {
-                let n_bytes = &mut n_bytes[..num_bytes];
-                let rng = test::rand::FixedSliceRandom { bytes: n_bytes };
-                assert!(agreement::EphemeralPrivateKey::generate(alg, &rng).is_err());
-            }
-
-            // Test that a private key value exactly equal to the group order
-            // minus 1 is accepted.
-            let mut n_minus_1_bytes = n_bytes;
-            {
-                let n_minus_1_bytes = &mut n_minus_1_bytes[..num_bytes];
-                n_minus_1_bytes[num_bytes - 1] -= 1;
-                let rng = test::rand::FixedSliceRandom {
-                    bytes: n_minus_1_bytes,
-                };
-                let key = agreement::EphemeralPrivateKey::generate(alg, &rng).unwrap();
-                assert_eq!(&n_minus_1_bytes[..], key.bytes());
-            }
-
-            // Test that n + 1 also fails.
-            let mut n_plus_1_bytes = n_bytes;
-            {
-                let n_plus_1_bytes = &mut n_plus_1_bytes[..num_bytes];
-                n_plus_1_bytes[num_bytes - 1] += 1;
-                let rng = test::rand::FixedSliceRandom {
-                    bytes: n_plus_1_bytes,
-                };
-                assert!(agreement::EphemeralPrivateKey::generate(alg, &rng).is_err());
-            }
-
-            // Test recovery from initial RNG failure. The first value will be
-            // n, then n + 1, then zero, the next value will be n - 1, which
-            // will be accepted.
-            {
-                let bytes = [
-                    &n_bytes[..num_bytes],
-                    &n_plus_1_bytes[..num_bytes],
-                    &[0u8; ec::SCALAR_MAX_BYTES][..num_bytes],
-                    &n_minus_1_bytes[..num_bytes],
-                ];
-                let rng = test::rand::FixedSliceSequenceRandom {
-                    bytes: &bytes,
-                    current: core::cell::UnsafeCell::new(0),
-                };
-                let key = agreement::EphemeralPrivateKey::generate(alg, &rng).unwrap();
-                assert_eq!(&n_minus_1_bytes[..num_bytes], key.bytes());
-            }
-        }
-    }
+    Err(error::Unspecified)
 }

@@ -16,7 +16,7 @@ use crate::{ec, error, rand};
 
 /// A key agreement algorithm.
 macro_rules! suite_b_curve {
-    ( $NAME:ident, $bits:expr, $curve_type:ty, $id:expr,
+    ( $NAME:ident, $bits:expr, $id:expr,
       $check_private_key_bytes:ident, $generate_private_key:ident,
       $public_from_private:ident) => {
         /// Public keys are encoding in uncompressed form using the
@@ -41,72 +41,87 @@ macro_rules! suite_b_curve {
             public_from_private: $public_from_private,
         };
 
-        fn $check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
-            debug_assert_eq!(bytes.len(), $bits / 8);
-            <elliptic_curve::SecretKey<$curve_type>>::from_be_bytes(bytes)
-                .map(drop)
-                .map_err(|_| error::Unspecified)
-        }
-
-        fn $generate_private_key(
-            rng: &dyn rand::SecureRandom,
-            out: &mut [u8],
-        ) -> Result<(), error::Unspecified> {
-            if out.len() < $NAME.elem_scalar_seed_len {
-                return Err(error::Unspecified);
-            }
-
-            let mut rng = RngCompat(rng);
-            let sk = <elliptic_curve::SecretKey<$curve_type>>::random(&mut rng);
-            out[..$NAME.elem_scalar_seed_len].copy_from_slice(sk.to_be_bytes().as_slice());
-
-            Ok(())
-        }
-
-        fn $public_from_private(
-            public_out: &mut [u8],
-            private_key: &ec::Seed,
-        ) -> Result<(), error::Unspecified> {
-            use elliptic_curve::sec1::EncodedPoint;
-
-            if public_out.len() < $NAME.public_key_len {
-                return Err(error::Unspecified);
-            }
-
-            let private_key =
-                <elliptic_curve::SecretKey<$curve_type>>::from_be_bytes(&private_key.bytes_less_safe())
-                    .map_err(|_| error::Unspecified)?;
-            let public_key = private_key.public_key();
-            let public_key = <EncodedPoint<$curve_type>>::from(public_key);
-
-            public_out[..$NAME.public_key_len].copy_from_slice(public_key.as_bytes());
-
-            Ok(())
-        }
     };
 }
 
 suite_b_curve!(
     P256,
     256,
-    p256::NistP256,
     ec::CurveID::P256,
     p256_check_private_key_bytes,
     p256_generate_private_key,
     p256_public_from_private
 );
 
-/*
+fn p256_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
+    <elliptic_curve::SecretKey<p256::NistP256>>::from_be_bytes(bytes)
+        .map(drop)
+        .map_err(|_| error::Unspecified)
+}
+
+fn p256_generate_private_key(
+    rng: &dyn rand::SecureRandom,
+    out: &mut [u8],
+) -> Result<(), error::Unspecified> {
+    if out.len() < P256.elem_scalar_seed_len {
+        return Err(error::Unspecified);
+    }
+
+    let mut rng = RngCompat(rng);
+    let sk = <elliptic_curve::SecretKey<p256::NistP256>>::random(&mut rng);
+    out[..P256.elem_scalar_seed_len].copy_from_slice(sk.to_be_bytes().as_slice());
+
+    Ok(())
+}
+
+fn p256_public_from_private(
+    public_out: &mut [u8],
+    private_key: &ec::Seed,
+) -> Result<(), error::Unspecified> {
+    use elliptic_curve::sec1::EncodedPoint;
+
+    if public_out.len() < P256.public_key_len {
+        return Err(error::Unspecified);
+    }
+
+    let private_key =
+        <elliptic_curve::SecretKey<p256::NistP256>>::from_be_bytes(&private_key.bytes_less_safe())
+            .map_err(|_| error::Unspecified)?;
+    let public_key = private_key.public_key();
+    let public_key = <EncodedPoint<p256::NistP256>>::from(public_key);
+
+    public_out[..P256.public_key_len].copy_from_slice(public_key.as_bytes());
+
+    Ok(())
+}
+
 suite_b_curve!(
     P384,
     384,
-    p384::NistP384,
     ec::CurveID::P384,
     p384_check_private_key_bytes,
     p384_generate_private_key,
     p384_public_from_private
 );
-*/
+
+// TODO p384 not implement
+fn p384_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
+    Err(error::Unspecified)
+}
+
+fn p384_generate_private_key(
+    rng: &dyn rand::SecureRandom,
+    out: &mut [u8],
+) -> Result<(), error::Unspecified> {
+    Err(error::Unspecified)
+}
+
+fn p384_public_from_private(
+    public_out: &mut [u8],
+    private_key: &ec::Seed,
+) -> Result<(), error::Unspecified> {
+    Err(error::Unspecified)
+}
 
 struct RngCompat<'a>(&'a dyn rand::SecureRandom);
 
