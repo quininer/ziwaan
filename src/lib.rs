@@ -65,6 +65,7 @@ pub mod io;
 pub mod pbkdf2;
 pub mod pkcs8;
 pub mod agreement;
+pub mod signature;
 
 mod sealed {
     /// Traits that are designed to only be implemented internally in *ring*.

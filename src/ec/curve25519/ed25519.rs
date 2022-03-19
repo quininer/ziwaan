@@ -1,4 +1,4 @@
-// Copyright 2016 Brian Smith.
+// Copyright 2015-2016 Brian Smith.
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +12,12 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-//! Elliptic curve operations and schemes using Curve25519.
+//! EdDSA Signatures.
 
-pub mod ed25519;
-pub mod x25519;
+use crate::digest;
+
+pub mod signing;
+pub mod verification;
+
+/// The length of an Ed25519 public key.
+pub const ED25519_PUBLIC_KEY_LEN: usize = ed25519_dalek::PUBLIC_KEY_LENGTH;
