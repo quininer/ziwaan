@@ -151,9 +151,13 @@ impl Ed25519KeyPair {
     }
 
     fn from_seed_(seed: &Seed) -> Self {
-        let h = digest::digest(&digest::SHA512, seed);
+        let mut h = Sha512::digest(seed);
 
-        let secret_key = ed25519_dalek::ExpandedSecretKey::from_bytes(h.as_ref()).unwrap();
+        h[0]  &= 248;
+        h[31] &=  63;
+        h[31] |=  64;
+
+        let secret_key = ed25519_dalek::ExpandedSecretKey::from_bytes(&h).unwrap();
         let public_key = PublicKey(ed25519_dalek::PublicKey::from(&secret_key));
 
         Self { secret_key, public_key }
