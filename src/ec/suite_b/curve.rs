@@ -67,7 +67,7 @@ fn p256_generate_private_key(
         return Err(error::Unspecified);
     }
 
-    let mut rng = RngCompat(rng);
+    let mut rng = rand::RngCompat(rng);
     let sk = <elliptic_curve::SecretKey<p256::NistP256>>::random(&mut rng);
     out[..P256.elem_scalar_seed_len].copy_from_slice(sk.to_be_bytes().as_slice());
 
@@ -122,30 +122,3 @@ fn p384_public_from_private(
 ) -> Result<(), error::Unspecified> {
     Err(error::Unspecified)
 }
-
-struct RngCompat<'a>(&'a dyn rand::SecureRandom);
-
-impl elliptic_curve::rand_core::RngCore for RngCompat<'_> {
-    fn next_u32(&mut self) -> u32 {
-        let mut buf = [0; 4];
-        self.fill_bytes(&mut buf);
-        u32::from_le_bytes(buf)
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        let mut buf = [0; 8];
-        self.fill_bytes(&mut buf);
-        u64::from_le_bytes(buf)
-    }
-
-    fn fill_bytes(&mut self, dest: &mut [u8]) {
-        self.0.fill(dest).unwrap();
-    }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), elliptic_curve::rand_core::Error> {
-        self.fill_bytes(dest);
-        Ok(())
-    }
-}
-
-impl elliptic_curve::rand_core::CryptoRng for RngCompat<'_> {}

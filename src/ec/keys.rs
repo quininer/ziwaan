@@ -2,7 +2,7 @@ use super::{Curve, ELEM_MAX_BYTES, SEED_MAX_BYTES};
 use crate::{error, rand};
 
 pub struct KeyPair {
-    seed: Seed,
+    pub(crate) seed: Seed,
     public_key: PublicKey,
 }
 

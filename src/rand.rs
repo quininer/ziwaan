@@ -162,3 +162,30 @@ impl sealed::SecureRandom for SystemRandom {
 }
 
 impl crate::sealed::Sealed for SystemRandom {}
+
+pub(crate) struct RngCompat<'a>(pub(crate) &'a dyn SecureRandom);
+
+impl elliptic_curve::rand_core::RngCore for RngCompat<'_> {
+    fn next_u32(&mut self) -> u32 {
+        let mut buf = [0; 4];
+        self.fill_bytes(&mut buf);
+        u32::from_le_bytes(buf)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut buf = [0; 8];
+        self.fill_bytes(&mut buf);
+        u64::from_le_bytes(buf)
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0.fill(dest).unwrap();
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), elliptic_curve::rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+
+impl elliptic_curve::rand_core::CryptoRng for RngCompat<'_> {}
