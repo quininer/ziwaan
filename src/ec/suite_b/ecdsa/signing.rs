@@ -246,7 +246,6 @@ fn p256_format_sig_asn1(sig: signature::Signature) -> signature::Signature {
     })
 }
 
-/*
 /// Signing of fixed-length (PKCS#11 style) ECDSA signatures using the
 /// P-384 curve and SHA-384.
 ///
@@ -254,11 +253,9 @@ fn p256_format_sig_asn1(sig: signature::Signature) -> signature::Signature {
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_FIXED_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::P384,
-    private_scalar_ops: &p384::PRIVATE_SCALAR_OPS,
-    private_key_ops: &p384::PRIVATE_KEY_OPS,
-    digest_alg: &digest::SHA384,
+    sign: dummy_sign,
+    format_sig: dummy_format,
     pkcs8_template: &EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE,
-    format_rs: format_rs_fixed,
     id: AlgorithmID::ECDSA_P384_SHA384_FIXED_SIGNING,
 };
 
@@ -269,14 +266,21 @@ pub static ECDSA_P384_SHA384_FIXED_SIGNING: EcdsaSigningAlgorithm = EcdsaSigning
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::P384,
-    private_scalar_ops: &p384::PRIVATE_SCALAR_OPS,
-    private_key_ops: &p384::PRIVATE_KEY_OPS,
-    digest_alg: &digest::SHA384,
+    sign: dummy_sign,
+    format_sig: dummy_format,
     pkcs8_template: &EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE,
-    format_rs: format_rs_asn1,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1_SIGNING,
 };
-*/
+
+fn dummy_sign(_seed: &ec::Seed, _rng: &dyn rand::SecureRandom, _msg: &[u8])
+    -> Result<signature::Signature, error::Unspecified>
+{
+    Err(error::Unspecified)
+}
+
+fn dummy_format(sig: signature::Signature) -> signature::Signature {
+    sig
+}
 
 static EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Template {
     bytes: include_bytes!("ecPublicKey_p256_pkcs8_v1_template.der"),

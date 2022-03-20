@@ -114,13 +114,41 @@ fn p256_sha256_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
         .map_err(|_| error::Unspecified)
 }
 
-// Although it is sha384, we only use the first half of the output,
-// so this is equivalent to sha512_256.
 fn p256_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     -> Result<(), error::Unspecified>
 {
     use p256::ecdsa::signature::{ DigestVerifier, Signature as _ };
-    use sha2_09::{ Digest, Sha512Trunc256 };
+    use sha2_09::{ digest::{ self, Digest }, Sha384 };
+    use sha2_09::digest::generic_array::GenericArray;
+
+    #[derive(Clone, Default)]
+    struct Sha384_256(Sha384);
+
+    impl digest::Update for Sha384_256 {
+        fn update(&mut self, data: impl AsRef<[u8]>) {
+            digest::Update::update(&mut self.0, data.as_ref());
+        }
+    }
+
+    impl digest::FixedOutput for Sha384_256 {
+        type OutputSize = digest::consts::U32;
+
+        fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
+            let output = self.0.finalize();
+            out.copy_from_slice(&output[..32]);
+        }
+
+        fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
+            let output = self.0.finalize_reset();
+            out.copy_from_slice(&output[..32]);
+        }
+    }
+
+    impl digest::Reset for Sha384_256 {
+        fn reset(&mut self) {
+            digest::Reset::reset(&mut self.0);
+        }
+    }
 
     let peer_public_key =
         <p256::ecdsa::VerifyingKey>::from_sec1_bytes(public_key)
@@ -128,7 +156,7 @@ fn p256_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     let sig = <p256::ecdsa::Signature>::from_bytes(sig.as_ref())
         .map_err(|_| error::Unspecified)?;
 
-    peer_public_key.verify_digest(Sha512Trunc256::new().chain(msg), &sig)
+    peer_public_key.verify_digest(Sha384_256(Sha384::new()).chain(msg), &sig)
         .map_err(|_| error::Unspecified)
 }
 
@@ -154,16 +182,14 @@ fn p256_sig_asn1_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspec
     }))
 }
 
-/*
 /// Verification of fixed-length (PKCS#11 style) ECDSA signatures using the
 /// P-384 curve and SHA-384.
 ///
 /// See "`ECDSA_*_FIXED` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    ops: &p384::PUBLIC_SCALAR_OPS,
-    digest_alg: &digest::SHA384,
-    split_rs: split_rs_fixed,
+    verify: dummy_verify,
+    parse_format: dummy_parse,
     id: AlgorithmID::ECDSA_P384_SHA384_FIXED,
 };
 
@@ -178,9 +204,8 @@ pub static ECDSA_P384_SHA384_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificati
 /// See "`ECDSA_*_ASN1` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA256_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    ops: &p384::PUBLIC_SCALAR_OPS,
-    digest_alg: &digest::SHA256,
-    split_rs: split_rs_asn1,
+    verify: dummy_verify,
+    parse_format: dummy_parse,
     id: AlgorithmID::ECDSA_P384_SHA256_ASN1,
 };
 
@@ -190,68 +215,17 @@ pub static ECDSA_P384_SHA256_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificatio
 /// See "`ECDSA_*_ASN1` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    ops: &p384::PUBLIC_SCALAR_OPS,
-    digest_alg: &digest::SHA384,
-    split_rs: split_rs_asn1,
+    verify: dummy_verify,
+    parse_format: dummy_parse,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1,
 };
-*/
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test;
-    use alloc::vec::Vec;
+fn dummy_verify(_public_key: &[u8], _msg: &[u8], _sig: &signature::Signature)
+    -> Result<(), error::Unspecified>
+{
+    Err(error::Unspecified)
+}
 
-    #[test]
-    fn test_digest_based_test_vectors() {
-        test::run(
-            test_file!("../../../../crypto/fipsmodule/ecdsa/ecdsa_verify_tests.txt"),
-            |section, test_case| {
-                assert_eq!(section, "");
-
-                let curve_name = test_case.consume_string("Curve");
-
-                let public_key = {
-                    let mut public_key = Vec::new();
-                    public_key.push(0x04);
-                    public_key.extend(&test_case.consume_bytes("X"));
-                    public_key.extend(&test_case.consume_bytes("Y"));
-                    public_key
-                };
-
-                let digest = test_case.consume_bytes("Digest");
-
-                let sig = {
-                    let mut sig = Vec::new();
-                    sig.extend(&test_case.consume_bytes("R"));
-                    sig.extend(&test_case.consume_bytes("S"));
-                    sig
-                };
-
-                let invalid = test_case.consume_optional_string("Invalid");
-
-                let alg = match curve_name.as_str() {
-                    "P-256" => &ECDSA_P256_SHA256_FIXED,
-                    "P-384" => &ECDSA_P384_SHA384_FIXED,
-                    _ => {
-                        panic!("Unsupported curve: {}", curve_name);
-                    }
-                };
-
-                let digest = super::super::digest_scalar::digest_bytes_scalar(
-                    &alg.ops.scalar_ops,
-                    &digest[..],
-                );
-                let actual_result = alg.verify_digest(
-                    untrusted::Input::from(&public_key[..]),
-                    digest,
-                    untrusted::Input::from(&sig[..]),
-                );
-                assert_eq!(actual_result.is_ok(), invalid.is_none());
-
-                Ok(())
-            },
-        );
-    }
+fn dummy_parse(_sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
+    Err(error::Unspecified)
 }
