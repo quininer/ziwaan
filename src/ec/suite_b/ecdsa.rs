@@ -1,2 +1,2 @@
 pub mod signing;
-// pub mod verification;
+pub mod verification;

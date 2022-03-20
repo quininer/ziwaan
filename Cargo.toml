@@ -38,6 +38,7 @@ elliptic-curve = { version = "0.11", features = [ "ecdh" ] }
 ed25519 = "1"
 ecdsa = "0.13"
 rsa = "0.5"
+sha2_09 = { package = "sha2", version = "0.9" } # p256 dependence
 
 # util
 getrandom = "0.2"

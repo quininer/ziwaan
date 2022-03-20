@@ -61,11 +61,8 @@ fn p256_ecdh(
         <elliptic_curve::SecretKey<p256::NistP256>>::from_be_bytes(&my_private_key.bytes_less_safe())
             .map_err(|_| error::Unspecified)?;
     let peer_public_key =
-        <EncodedPoint<p256::NistP256>>::from_bytes(peer_public_key.as_slice_less_safe())
+        <elliptic_curve::PublicKey<p256::NistP256>>::from_sec1_bytes(peer_public_key.as_slice_less_safe())
             .map_err(|_| error::Unspecified)?;
-    let peer_public_key: Option<elliptic_curve::PublicKey<p256::NistP256>> =
-        <elliptic_curve::PublicKey<p256::NistP256>>::from_encoded_point(&peer_public_key).into();
-    let peer_public_key = peer_public_key.ok_or(error::Unspecified)?;
 
     let shared_secret = elliptic_curve::ecdh::diffie_hellman(
         my_private_key.to_nonzero_scalar(),
