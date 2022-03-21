@@ -25,6 +25,7 @@
 //! (seccomp filters on Linux in particular). See `SystemRandom`'s
 //! documentation for more details.
 
+use alloc::boxed::Box;
 use crate::error;
 
 /// A secure random number generator.
@@ -71,11 +72,16 @@ where
 }
 
 pub(crate) mod sealed {
+    use alloc::boxed::Box;
     use crate::error;
 
     pub trait SecureRandom: core::fmt::Debug {
         /// Fills `dest` with random bytes.
         fn fill_impl(&self, dest: &mut [u8]) -> Result<(), error::Unspecified>;
+
+        /// Into boxed RngCore
+        #[cfg(feature = "alloc")]
+        fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore>;
     }
 
     pub trait RandomlyConstructable: Sized {
@@ -158,6 +164,11 @@ impl sealed::SecureRandom for SystemRandom {
     #[inline(always)]
     fn fill_impl(&self, dest: &mut [u8]) -> Result<(), error::Unspecified> {
         getrandom::getrandom(dest).map_err(|_| error::Unspecified)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
+        Box::new(rand_core_06::OsRng)
     }
 }
 

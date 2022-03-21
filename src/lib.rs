@@ -39,7 +39,7 @@
 // internally.
 #![deny(missing_docs, unused_qualifications, variant_size_differences)]
 #![forbid(unused_results)]
-// #![no_std]
+#![no_std]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -53,6 +53,7 @@ pub mod test;
 mod bits;
 mod polyfill;
 mod ec;
+mod rsa;
 
 pub mod error;
 pub mod constant_time;

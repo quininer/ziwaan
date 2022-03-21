@@ -472,6 +472,8 @@ fn parse_test_case(
 /// useful for some types of fuzzing.
 #[doc(hidden)]
 pub mod rand {
+    #[cfg(feature = "alloc")]
+    use alloc::boxed::Box;
     use crate::{error, polyfill, rand};
 
     /// An implementation of `SecureRandom` that always fills the output slice
@@ -485,6 +487,38 @@ pub mod rand {
         fn fill_impl(&self, dest: &mut [u8]) -> Result<(), error::Unspecified> {
             polyfill::slice::fill(dest, self.byte);
             Ok(())
+        }
+
+        #[cfg(feature = "alloc")]
+        fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
+            struct CompatRng(u8);
+
+            impl rand_core_06::RngCore for CompatRng {
+                fn next_u32(&mut self) -> u32 {
+                    let mut buf = [0; 4];
+                    self.fill_bytes(&mut buf);
+                    u32::from_le_bytes(buf)
+                }
+
+                fn next_u64(&mut self) -> u64 {
+                    let mut buf = [0; 8];
+                    self.fill_bytes(&mut buf);
+                    u64::from_le_bytes(buf)
+                }
+
+                fn fill_bytes(&mut self, dest: &mut [u8]) {
+                    for b in dest.iter_mut() {
+                        *b = self.0;
+                    }
+                }
+
+                fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core_06::Error> {
+                    self.fill_bytes(dest);
+                    Ok(())
+                }
+            }
+
+            Box::new(CompatRng(self.byte))
         }
     }
 
@@ -501,6 +535,38 @@ pub mod rand {
             dest.copy_from_slice(self.bytes);
             Ok(())
         }
+
+        #[cfg(feature = "alloc")]
+        fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
+            struct CompatRng(Box<[u8]>);
+
+            impl rand_core_06::RngCore for CompatRng {
+                fn next_u32(&mut self) -> u32 {
+                    let mut buf = [0; 4];
+                    self.fill_bytes(&mut buf);
+                    u32::from_le_bytes(buf)
+                }
+
+                fn next_u64(&mut self) -> u64 {
+                    let mut buf = [0; 8];
+                    self.fill_bytes(&mut buf);
+                    u64::from_le_bytes(buf)
+                }
+
+                fn fill_bytes(&mut self, dest: &mut [u8]) {
+                    for (dest, src) in dest.iter_mut().zip(self.0.iter()) {
+                        *dest = *src;
+                    }
+                }
+
+                fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core_06::Error> {
+                    self.fill_bytes(dest);
+                    Ok(())
+                }
+            }
+
+            Box::new(CompatRng(Box::from(self.bytes)))
+        }
     }
 
     /// An implementation of `SecureRandom` where each slice in `bytes` is a
@@ -516,18 +582,23 @@ pub mod rand {
     pub struct FixedSliceSequenceRandom<'a> {
         /// The value.
         pub bytes: &'a [&'a [u8]],
-        pub current: core::cell::UnsafeCell<usize>,
+        pub current: core::sync::atomic::AtomicUsize
     }
 
     impl rand::sealed::SecureRandom for FixedSliceSequenceRandom<'_> {
         fn fill_impl(&self, dest: &mut [u8]) -> Result<(), error::Unspecified> {
-            let current = unsafe { *self.current.get() };
+            let current = self.current.load(core::sync::atomic::Ordering::SeqCst);
             let bytes = self.bytes[current];
             dest.copy_from_slice(bytes);
             // Remember that we returned this slice and prepare to return
             // the next one, if any.
-            unsafe { *self.current.get() += 1 };
+            let _ = self.current.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
             Ok(())
+        }
+
+        #[cfg(feature = "alloc")]
+        fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
+            todo!()
         }
     }
 
@@ -535,7 +606,7 @@ pub mod rand {
         fn drop(&mut self) {
             // Ensure that `fill()` was called exactly the right number of
             // times.
-            assert_eq!(unsafe { *self.current.get() }, self.bytes.len());
+            assert_eq!(self.current.load(core::sync::atomic::Ordering::SeqCst), self.bytes.len());
         }
     }
 }
