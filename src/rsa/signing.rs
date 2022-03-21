@@ -12,9 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use super::{
-    /* verification, */ RsaEncoding,
-};
+use super::RsaEncoding;
 /// RSA PKCS#1 1.5 signatures.
 use crate::{
     bits, digest,
@@ -243,9 +241,12 @@ impl RsaKeyPair {
         signature: &mut [u8],
     ) -> Result<(), error::Unspecified> {
         let padding_scheme = padding_alg.scheme(rng);
-        let mut hasher = padding_alg.digest();
-        hasher.update(msg);
-        let msg = hasher.finalize();
+        let msg = {
+            let mut hasher = padding_alg.digest();
+            hasher.update(msg);
+            hasher.finalize()
+        };
+
         let sig = self.private_key.sign(padding_scheme, &msg)
             .map_err(|_| error::Unspecified)?;
 

@@ -27,7 +27,18 @@ impl signature::VerificationAlgorithm for RsaParameters {
         msg: untrusted::Input,
         signature: untrusted::Input,
     ) -> Result<(), error::Unspecified> {
-        todo!()
+        use rsa::pkcs1::FromRsaPublicKey;
+
+        let public_key =
+            rsa::pkcs1::RsaPublicKeyDocument::from_pkcs1_der(public_key.as_slice_less_safe())
+                .map_err(|_| error::Unspecified)?;
+
+        verify(
+            self,
+            public_key.public_key(),
+            msg.as_slice_less_safe(),
+            signature.as_slice_less_safe()
+        )
     }
 }
 
@@ -190,6 +201,45 @@ where
         message: &[u8],
         signature: &[u8],
     ) -> Result<(), error::Unspecified> {
-        todo!()
+        use rsa::pkcs1::UIntBytes;
+
+        let n = UIntBytes::new(self.n.as_ref())
+            .map_err(|_| error::Unspecified)?;
+        let e = UIntBytes::new(self.e.as_ref())
+            .map_err(|_| error::Unspecified)?;
+        let public_key = rsa::pkcs1::RsaPublicKey {
+            modulus: n,
+            public_exponent: e
+        };
+
+        verify(params, public_key, message, signature)
     }
+}
+
+fn verify(
+    params: &RsaParameters,
+    public_key: rsa::pkcs1::RsaPublicKey<'_>,
+    msg: &[u8],
+    signature: &[u8],
+) -> Result<(), error::Unspecified> {
+    use rsa::{ PublicKeyParts, PublicKey };
+    use rsa::pkcs1::FromRsaPublicKey;
+
+    let public_key = rsa::RsaPublicKey::from_pkcs1_public_key(public_key)
+        .map_err(|_| error::Unspecified)?;
+
+    if public_key.size() * 8 < params.min_bits {
+        return Err(error::KeyRejected::too_small().into());
+    }
+
+    let rng = crate::rand::SystemRandom::new(); // it's no use
+    let scheme = params.padding_alg.scheme(&rng);
+    let msg = {
+        let mut hasher = params.padding_alg.digest();
+        hasher.update(msg);
+        hasher.finalize()
+    };
+
+    public_key.verify(scheme, &msg, signature)
+        .map_err(|_| error::Unspecified)
 }
