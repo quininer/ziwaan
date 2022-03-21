@@ -13,6 +13,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use alloc::boxed::Box;
+use digest_09::DynDigest;
 use sha2_09::Digest as _;
 // use super::PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN;
 use crate::{bits, digest, error, io::der};
@@ -29,20 +30,10 @@ pub trait Padding: 'static + Sync + crate::sealed::Sealed + core::fmt::Debug {
 /// [RFC 3447 Section 8]: https://tools.ietf.org/html/rfc3447#section-8
 #[cfg(feature = "alloc")]
 pub trait RsaEncoding: Padding {
+    #[doc(hidden)]
     fn scheme(&self, rng: &dyn rand::SecureRandom) -> rsa::padding::PaddingScheme;
-}
-
-/// Verification of an RSA signature encoding as described in
-/// [RFC 3447 Section 8].
-///
-/// [RFC 3447 Section 8]: https://tools.ietf.org/html/rfc3447#section-8
-pub trait Verification: Padding {
-    fn verify(
-        &self,
-        m_hash: &digest::Digest,
-        m: &mut untrusted::Reader,
-        mod_bits: bits::BitLength,
-    ) -> Result<(), error::Unspecified>;
+    #[doc(hidden)]
+    fn digest(&self) -> Box<dyn DynDigest>;
 }
 
 /// PKCS#1 1.5 padding as described in [RFC 3447 Section 8.2].
@@ -52,7 +43,7 @@ pub trait Verification: Padding {
 ///
 /// [RFC 3447 Section 8.2]: https://tools.ietf.org/html/rfc3447#section-8.2
 #[derive(Debug)]
-pub struct PKCS1(Option<rsa::hash::Hash>);
+pub struct PKCS1(rsa::hash::Hash);
 
 impl crate::sealed::Sealed for PKCS1 {}
 
@@ -61,30 +52,19 @@ impl Padding for PKCS1 {}
 #[cfg(feature = "alloc")]
 impl RsaEncoding for PKCS1 {
     fn scheme(&self, _rng: &dyn rand::SecureRandom) -> rsa::padding::PaddingScheme {
-        rsa::padding::PaddingScheme::new_pkcs1v15_sign(self.0.clone())
+        rsa::padding::PaddingScheme::new_pkcs1v15_sign(Some(self.0.clone()))
     }
-}
 
-/*
-impl Verification for PKCS1 {
-    fn verify(
-        &self,
-        m_hash: &digest::Digest,
-        m: &mut untrusted::Reader,
-        mod_bits: bits::BitLength,
-    ) -> Result<(), error::Unspecified> {
-        // `mod_bits.as_usize_bytes_rounded_up() <=
-        //      PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN` is ensured by `verify_rsa_()`.
-        let mut calculated = [0u8; PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN];
-        let calculated = &mut calculated[..mod_bits.as_usize_bytes_rounded_up()];
-        pkcs1_encode(&self, m_hash, calculated);
-        if m.read_bytes_to_end() != *calculated {
-            return Err(error::Unspecified);
+    fn digest(&self) -> Box<dyn DynDigest> {
+        match self.0 {
+            rsa::hash::Hash::SHA1 => Box::new(sha_1_09::Sha1::new()),
+            rsa::hash::Hash::SHA2_256 => Box::new(sha2_09::Sha256::new()),
+            rsa::hash::Hash::SHA2_384 => Box::new(sha2_09::Sha384::new()),
+            rsa::hash::Hash::SHA2_512 => Box::new(sha2_09::Sha512::new()),
+            _ => unreachable!()
         }
-        Ok(())
     }
 }
-*/
 
 macro_rules! rsa_pkcs1_padding {
     ( $PADDING_ALGORITHM:ident, $digest_alg:expr, $doc_str:expr ) => {
@@ -95,22 +75,22 @@ macro_rules! rsa_pkcs1_padding {
 
 rsa_pkcs1_padding!(
     RSA_PKCS1_SHA1_FOR_LEGACY_USE_ONLY,
-    Some(rsa::hash::Hash::SHA1),
+    rsa::hash::Hash::SHA1,
     "PKCS#1 1.5 padding using SHA-1 for RSA signatures."
 );
 rsa_pkcs1_padding!(
     RSA_PKCS1_SHA256,
-    Some(rsa::hash::Hash::SHA2_256),
+    rsa::hash::Hash::SHA2_256,
     "PKCS#1 1.5 padding using SHA-256 for RSA signatures."
 );
 rsa_pkcs1_padding!(
     RSA_PKCS1_SHA384,
-    Some(rsa::hash::Hash::SHA2_384),
+    rsa::hash::Hash::SHA2_384,
     "PKCS#1 1.5 padding using SHA-384 for RSA signatures."
 );
 rsa_pkcs1_padding!(
     RSA_PKCS1_SHA512,
-    Some(rsa::hash::Hash::SHA2_512),
+    rsa::hash::Hash::SHA2_512,
     "PKCS#1 1.5 padding using SHA-512 for RSA signatures."
 );
 
@@ -122,7 +102,7 @@ rsa_pkcs1_padding!(
 /// [RFC 3447 Section 8.1]: https://tools.ietf.org/html/rfc3447#section-8.1
 #[derive(Debug)]
 pub struct PSS {
-    digest_alg: fn() -> Box<dyn digest_09::DynDigest>
+    digest_alg: fn() -> Box<dyn DynDigest>
 }
 
 impl crate::sealed::Sealed for PSS {}
@@ -143,18 +123,9 @@ impl RsaEncoding for PSS {
             salt_len: Some(salt_len)
         }
     }
-}
 
-impl Verification for PSS {
-    // RSASSA-PSS-VERIFY from https://tools.ietf.org/html/rfc3447#section-8.1.2
-    // where steps 1, 2(a), and 2(b) have been done for us.
-    fn verify(
-        &self,
-        m_hash: &digest::Digest,
-        m: &mut untrusted::Reader,
-        mod_bits: bits::BitLength,
-    ) -> Result<(), error::Unspecified> {
-        todo!()
+    fn digest(&self) -> Box<dyn DynDigest> {
+        (self.digest_alg)()
     }
 }
 
@@ -212,7 +183,11 @@ mod test {
 
                 let msg = test_case.consume_bytes("Msg");
                 let msg = untrusted::Input::from(&msg);
-                let m_hash = digest::digest(alg.digest_alg(), msg.as_slice_less_safe());
+                let m_hash = {
+                    let mut hasher = alg.digest();
+                    hasher.update(msg.as_slice_less_safe());
+                    hasher.finalize()
+                };
 
                 let encoded = test_case.consume_bytes("EM");
                 let encoded = untrusted::Input::from(&encoded);
@@ -223,49 +198,9 @@ mod test {
                 let bit_len = test_case.consume_usize_bits("Len");
                 let is_valid = test_case.consume_string("Result") == "P";
 
-                let actual_result =
-                    encoded.read_all(error::Unspecified, |m| alg.verify(&m_hash, m, bit_len));
-                assert_eq!(actual_result.is_ok(), is_valid);
-
-                Ok(())
-            },
-        );
-    }
-
-    // Tests PSS encoding for various public modulus lengths.
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn test_pss_padding_encode() {
-        test::run(
-            test_file!("rsa_pss_padding_tests.txt"),
-            |section, test_case| {
-                assert_eq!(section, "");
-
-                let digest_name = test_case.consume_string("Digest");
-                let alg = match digest_name.as_ref() {
-                    "SHA256" => &RSA_PSS_SHA256,
-                    "SHA384" => &RSA_PSS_SHA384,
-                    "SHA512" => &RSA_PSS_SHA512,
-                    _ => panic!("Unsupported digest: {}", digest_name),
-                };
-
-                let msg = test_case.consume_bytes("Msg");
-                let salt = test_case.consume_bytes("Salt");
-                let encoded = test_case.consume_bytes("EM");
-                let bit_len = test_case.consume_usize_bits("Len");
-                let expected_result = test_case.consume_string("Result");
-
-                // Only test the valid outputs
-                if expected_result != "P" {
-                    return Ok(());
-                }
-
-                let rng = test::rand::FixedSliceRandom { bytes: &salt };
-
-                let mut m_out = vec![0u8; bit_len.as_usize_bytes_rounded_up()];
-                let digest = digest::digest(alg.digest_alg(), &msg);
-                alg.encode(&digest, &mut m_out, bit_len, &rng).unwrap();
-                assert_eq!(m_out, encoded);
+//                let actual_result =
+//                    encoded.read_all(error::Unspecified, |m| alg.verify(&m_hash, m, bit_len));
+//                assert_eq!(actual_result.is_ok(), is_valid);
 
                 Ok(())
             },

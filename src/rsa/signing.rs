@@ -13,7 +13,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use super::{
-    verification, RsaEncoding,
+    /* verification, */ RsaEncoding,
 };
 /// RSA PKCS#1 1.5 signatures.
 use crate::{
@@ -163,7 +163,7 @@ impl RsaKeyPair {
             .map_err(|_| KeyRejected::invalid_encoding())?;
         private_key.validate()
             .map_err(|_| KeyRejected::invalid_component())?;
-        let public_key = RsaSubjectPublicKey(rsa_doc.public_key().to_der());
+        let public_key = RsaSubjectPublicKey(rsa_doc.private_key().public_key().to_der());
 
         Ok(RsaKeyPair { private_key, public_key })
     }
@@ -201,113 +201,16 @@ impl AsRef<[u8]> for RsaSubjectPublicKey {
 derive_debug_self_as_ref_hex_bytes!(RsaSubjectPublicKey);
 
 impl RsaSubjectPublicKey {
-    fn from_n_and_e(n: io::Positive, e: io::Positive) -> Self {
-        let bytes = der_writer::write_all(der::Tag::Sequence, &|output| {
-            der_writer::write_positive_integer(output, &n);
-            der_writer::write_positive_integer(output, &e);
-        });
-        RsaSubjectPublicKey(bytes)
-    }
-
     /// The public modulus (n).
     pub fn modulus(&self) -> io::Positive {
-        // Parsing won't fail because we serialized it ourselves.
-        let (public_key, _exponent) =
-            super::parse_public_key(untrusted::Input::from(self.as_ref())).unwrap();
-        public_key
+        todo!()
     }
 
     /// The public exponent (e).
     pub fn exponent(&self) -> io::Positive {
-        // Parsing won't fail because we serialized it ourselves.
-        let (_public_key, exponent) =
-            super::parse_public_key(untrusted::Input::from(self.as_ref())).unwrap();
-        exponent
+        todo!()
     }
 }
-
-struct PrivatePrime<M: Prime> {
-    modulus: bigint::Modulus<M>,
-    exponent: bigint::PrivateExponent<M>,
-}
-
-impl<M: Prime + Clone> PrivatePrime<M> {
-    /// Constructs a `PrivatePrime` from the private prime `p` and `dP` where
-    /// dP == d % (p - 1).
-    fn new(p: bigint::Nonnegative, dP: untrusted::Input) -> Result<Self, KeyRejected> {
-        let (p, p_bits) = bigint::Modulus::from_nonnegative_with_bit_length(p)?;
-        if p_bits.as_usize_bits() % 512 != 0 {
-            return Err(error::KeyRejected::private_modulus_len_not_multiple_of_512_bits());
-        }
-
-        // [NIST SP-800-56B rev. 1] 6.4.1.4.3 - Steps 7.a & 7.b.
-        let dP = bigint::PrivateExponent::from_be_bytes_padded(dP, &p)
-            .map_err(|error::Unspecified| KeyRejected::inconsistent_components())?;
-
-        // XXX: Steps 7.d and 7.e are omitted. We don't check that
-        // `dP == d % (p - 1)` because we don't (in the long term) have a good
-        // way to do modulo with an even modulus. Instead we just check that
-        // `1 <= dP < p - 1`. We'll check it, to some unknown extent, when we
-        // do the private key operation, since we verify that the result of the
-        // private key operation using the CRT parameters is consistent with `n`
-        // and `e`. TODO: Either prove that what we do is sufficient, or make
-        // it so.
-
-        Ok(PrivatePrime {
-            modulus: p,
-            exponent: dP,
-        })
-    }
-}
-
-fn elem_exp_consttime<M, MM>(
-    c: &bigint::Elem<MM>,
-    p: &PrivatePrime<M>,
-) -> Result<bigint::Elem<M>, error::Unspecified>
-where
-    M: bigint::NotMuchSmallerModulus<MM>,
-    M: Prime,
-{
-    let c_mod_m = bigint::elem_reduced(c, &p.modulus);
-    // We could precompute `oneRRR = elem_squared(&p.oneRR`) as mentioned
-    // in the Smooth CRT-RSA paper.
-    let c_mod_m = bigint::elem_mul(p.modulus.oneRR().as_ref(), c_mod_m, &p.modulus);
-    let c_mod_m = bigint::elem_mul(p.modulus.oneRR().as_ref(), c_mod_m, &p.modulus);
-    bigint::elem_exp_consttime(c_mod_m, &p.exponent, &p.modulus)
-}
-
-// Type-level representations of the different moduli used in RSA signing, in
-// addition to `super::N`. See `super::bigint`'s modulue-level documentation.
-
-#[derive(Copy, Clone)]
-enum P {}
-unsafe impl Prime for P {}
-unsafe impl bigint::SmallerModulus<N> for P {}
-unsafe impl bigint::NotMuchSmallerModulus<N> for P {}
-
-#[derive(Copy, Clone)]
-enum QQ {}
-unsafe impl bigint::SmallerModulus<N> for QQ {}
-unsafe impl bigint::NotMuchSmallerModulus<N> for QQ {}
-
-// `q < p < 2*q` since `q` is slightly smaller than `p` (see below). Thus:
-//
-//                         q <  p  < 2*q
-//                       q*q < p*q < 2*q*q.
-//                      q**2 <  n  < 2*(q**2).
-unsafe impl bigint::SlightlySmallerModulus<N> for QQ {}
-
-#[derive(Copy, Clone)]
-enum Q {}
-unsafe impl Prime for Q {}
-unsafe impl bigint::SmallerModulus<N> for Q {}
-unsafe impl bigint::SmallerModulus<P> for Q {}
-
-// q < p && `p.bit_length() == q.bit_length()` implies `q < p < 2*q`.
-unsafe impl bigint::SlightlySmallerModulus<P> for Q {}
-
-unsafe impl bigint::SmallerModulus<QQ> for Q {}
-unsafe impl bigint::NotMuchSmallerModulus<QQ> for Q {}
 
 impl RsaKeyPair {
     /// Sign `msg`. `msg` is digested using the digest algorithm from
@@ -333,73 +236,22 @@ impl RsaKeyPair {
         msg: &[u8],
         signature: &mut [u8],
     ) -> Result<(), error::Unspecified> {
-        let mod_bits = self.public.n_bits;
-        if signature.len() != mod_bits.as_usize_bytes_rounded_up() {
-            return Err(error::Unspecified);
+        let padding_scheme = padding_alg.scheme(rng);
+        let mut hasher = padding_alg.digest();
+        hasher.update(msg);
+        let msg = hasher.finalize();
+        let sig = self.private_key.sign(padding_scheme, &msg)
+            .map_err(|_| error::Unspecified)?;
+
+        if signature.len() == sig.len() {
+            signature.copy_from_slice(&sig);
+            Ok(())
+        } else {
+            Err(error::Unspecified)
         }
-
-        let m_hash = digest::digest(padding_alg.digest_alg(), msg);
-        padding_alg.encode(&m_hash, signature, mod_bits, rng)?;
-
-        // RFC 8017 Section 5.1.2: RSADP, using the Chinese Remainder Theorem
-        // with Garner's algorithm.
-
-        let n = &self.public.n;
-
-        // Step 1. The value zero is also rejected.
-        let base = bigint::Elem::from_be_bytes_padded(untrusted::Input::from(signature), n)?;
-
-        // Step 2
-        let c = base;
-
-        // Step 2.b.i.
-        let m_1 = elem_exp_consttime(&c, &self.p)?;
-        let c_mod_qq = bigint::elem_reduced_once(&c, &self.qq);
-        let m_2 = elem_exp_consttime(&c_mod_qq, &self.q)?;
-
-        // Step 2.b.ii isn't needed since there are only two primes.
-
-        // Step 2.b.iii.
-        let p = &self.p.modulus;
-        let m_2 = bigint::elem_widen(m_2, p);
-        let m_1_minus_m_2 = bigint::elem_sub(m_1, &m_2, p);
-        let h = bigint::elem_mul(&self.qInv, m_1_minus_m_2, p);
-
-        // Step 2.b.iv. The reduction in the modular multiplication isn't
-        // necessary because `h < p` and `p * q == n` implies `h * q < n`.
-        // Modular arithmetic is used simply to avoid implementing
-        // non-modular arithmetic.
-        let h = bigint::elem_widen(h, n);
-        let q_times_h = bigint::elem_mul(&self.q_mod_n, h, n);
-        let m_2 = bigint::elem_widen(m_2, n);
-        let m = bigint::elem_add(m_2, q_times_h, n);
-
-        // Step 2.b.v isn't needed since there are only two primes.
-
-        // Verify the result to protect against fault attacks as described
-        // in "On the Importance of Checking Cryptographic Protocols for
-        // Faults" by Dan Boneh, Richard A. DeMillo, and Richard J. Lipton.
-        // This check is cheap assuming `e` is small, which is ensured during
-        // `KeyPair` construction. Note that this is the only validation of `e`
-        // that is done other than basic checks on its size, oddness, and
-        // minimum value, since the relationship of `e` to `d`, `p`, and `q` is
-        // not verified during `KeyPair` construction.
-        {
-            let verify = bigint::elem_exp_vartime(m.clone(), self.public.e, n);
-            let verify = verify.into_unencoded(n);
-            bigint::elem_verify_equal_consttime(&verify, &c)?;
-        }
-
-        // Step 3.
-        //
-        // See Falko Strenzke, "Manger's Attack revisited", ICICS 2010.
-        m.fill_be_bytes(signature);
-
-        Ok(())
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     // We intentionally avoid `use super::*` so that we are sure to use only
@@ -439,4 +291,3 @@ mod tests {
             .is_err());
     }
 }
-*/

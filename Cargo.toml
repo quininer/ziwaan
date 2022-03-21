@@ -39,6 +39,7 @@ ed25519 = "1"
 ecdsa = "0.13"
 rsa = "0.5"
 digest_09 = { package = "digest", version = "0.9" }
+sha-1_09 = { package = "sha-1", version = "0.9" }
 sha2_09 = { package = "sha2", version = "0.9" } # p256 dependence
 rand_core_06 = { package = "rand_core", version = "0.6", features = [ "getrandom" ] }
 
