@@ -203,12 +203,18 @@ derive_debug_self_as_ref_hex_bytes!(RsaSubjectPublicKey);
 impl RsaSubjectPublicKey {
     /// The public modulus (n).
     pub fn modulus(&self) -> io::Positive {
-        todo!()
+        let buf = self.0.public_key()
+            .modulus
+            .as_bytes();
+        io::Positive::new_non_empty_without_leading_zeros(untrusted::Input::from(buf))
     }
 
     /// The public exponent (e).
     pub fn exponent(&self) -> io::Positive {
-        todo!()
+        let buf = self.0.public_key()
+            .public_exponent
+            .as_bytes();
+        io::Positive::new_non_empty_without_leading_zeros(untrusted::Input::from(buf))
     }
 }
 

@@ -40,9 +40,9 @@ const PRIVATE_KEY_PUBLIC_MODULUS_MAX_BITS: bits::BitLength = bits::BitLength::fr
 /// Parameters for RSA verification.
 #[derive(Debug)]
 pub struct RsaParameters {
-//    padding_alg: &'static dyn padding::Verification,
-//    min_bits: bits::BitLength,
+    padding_alg: &'static dyn RsaEncoding,
+    min_bits: usize
 }
 
-// pub mod verification;
+pub mod verification;
 pub mod signing;

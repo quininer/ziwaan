@@ -32,6 +32,7 @@ pub trait Padding: 'static + Sync + crate::sealed::Sealed + core::fmt::Debug {
 pub trait RsaEncoding: Padding {
     #[doc(hidden)]
     fn scheme(&self, rng: &dyn rand::SecureRandom) -> rsa::padding::PaddingScheme;
+
     #[doc(hidden)]
     fn digest(&self) -> Box<dyn DynDigest>;
 }
