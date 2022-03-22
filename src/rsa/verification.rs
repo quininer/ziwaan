@@ -222,14 +222,27 @@ fn verify(
     msg: &[u8],
     signature: &[u8],
 ) -> Result<(), error::Unspecified> {
-    use rsa::{ PublicKeyParts, PublicKey };
+    use rsa::{ PublicKeyParts, PublicKey, BigUint };
     use rsa::pkcs1::FromRsaPublicKey;
 
-    let public_key = rsa::RsaPublicKey::from_pkcs1_public_key(public_key)
-        .map_err(|_| error::Unspecified)?;
+    let public_key = {
+        let n = BigUint::from_bytes_be(public_key.modulus.as_bytes());
+        let e = BigUint::from_bytes_be(public_key.public_exponent.as_bytes());
 
-    if public_key.size() * 8 < params.min_bits {
+        if &e < &BigUint::from(3u32) {
+            return Err(error::KeyRejected::too_small().into());
+        }
+
+        rsa::RsaPublicKey::new(n, e)
+            .map_err(|err| error::Unspecified)?
+    };
+
+    if public_key.n().bits() < params.min_bits {
         return Err(error::KeyRejected::too_small().into());
+    }
+
+    if public_key.size() != signature.len() {
+        return Err(error::Unspecified);
     }
 
     let rng = crate::rand::SystemRandom::new(); // it's no use

@@ -154,13 +154,41 @@ impl RsaKeyPair {
     ///     http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-56Br1.pdf
     pub fn from_der(input: &[u8]) -> Result<Self, KeyRejected> {
         use rsa::pkcs1::FromRsaPrivateKey;
+        use rsa::{ PublicKeyParts, BigUint };
 
         let rsa_doc = rsa::pkcs1::RsaPrivateKeyDocument::from_pkcs1_der(input)
             .map_err(|_| KeyRejected::invalid_encoding())?;
+
+        if rsa_doc.private_key().version != rsa::pkcs1::Version::TwoPrime {
+            return Err(KeyRejected::version_not_supported());
+        }
+
         let private_key = rsa::RsaPrivateKey::from_pkcs1_private_key(rsa_doc.private_key())
             .map_err(|_| KeyRejected::invalid_encoding())?;
         private_key.validate()
             .map_err(|_| KeyRejected::invalid_component())?;
+
+        if private_key.e() < &BigUint::from(65537u32) {
+            return Err(KeyRejected::too_small());
+        }
+
+        if private_key.size() < 2048 / 8 {
+            return Err(KeyRejected::too_small());
+        }
+
+        if private_key.primes().is_empty()
+            || private_key.primes()
+                .iter()
+                .zip(private_key.primes().iter().skip(1))
+                .any(|(x, y)| x.bits() != y.bits())
+        {
+            return Err(KeyRejected::inconsistent_components());
+        }
+
+        if private_key.n().bits() % 512 != 0 {
+            return Err(KeyRejected::private_modulus_len_not_multiple_of_512_bits());
+        }
+
         let public_key = RsaSubjectPublicKey(rsa_doc.private_key().public_key().to_der());
 
         Ok(RsaKeyPair { private_key, public_key })
