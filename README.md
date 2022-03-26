@@ -7,4 +7,4 @@ Warning, this is just a toy. You should not use it in a production environment.
 # unimplemented
 
 * chacha20\_poly1305\_openssh
-* p358
+* p384
