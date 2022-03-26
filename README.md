@@ -2,10 +2,9 @@
 
 A API-compatible replacement for [the ring](https://github.com/briansmith/ring).
 
-Aims to replace C/asm implementations with pure Rust's cryptographic primitives
-for increased security and portability.
+Warning, this is just a toy. You should not use it in a production environment.
 
-In the choice of cryptographic primitives,
-the implementation with formal proof is preferred,
-followed by mature implementations in the community.
-Therefore, the performance may be slightly worse than ring on certain platforms.
+# unimplemented
+
+* chacha20\_poly1305\_openssh
+* p358
