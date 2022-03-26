@@ -67,7 +67,6 @@ fn chacha20_poly1305_open(
     key: &KeyInner,
     nonce: Nonce,
     Aad(aad): Aad<&[u8]>,
-    in_prefix_len: usize,
     in_out: &mut [u8],
     tag: &Tag
 ) -> Result<(), error::Unspecified> {
@@ -80,7 +79,7 @@ fn chacha20_poly1305_open(
     let nonce = <aead::Nonce<ChaCha20Poly1305>>::from(*nonce.as_ref());
     let tag = <aead::Tag<ChaCha20Poly1305>>::from(tag.0);
 
-    cipher.decrypt_in_place_detached(&nonce, aad, &mut in_out[in_prefix_len..], &tag)
+    cipher.decrypt_in_place_detached(&nonce, aad, in_out, &tag)
         .map_err(|_| error::Unspecified)
 }
 

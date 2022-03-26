@@ -212,10 +212,12 @@ fn open_within_<'in_out, A: AsRef<[u8]>>(
             &key.inner,
             nonce,
             aad,
-            in_prefix_len,
-            in_out,
+            &mut in_out[in_prefix_len..],
             &tag
         )?;
+
+        in_out.copy_within(in_prefix_len.., 0);
+
         // `ciphertext_len` is also the plaintext length.
         Ok(&mut in_out[..ciphertext_len])
     }
@@ -562,7 +564,6 @@ pub struct Algorithm {
         key: &KeyInner,
         nonce: Nonce,
         aad: Aad<&[u8]>,
-        in_prefix_len: usize,
         in_out: &mut [u8],
         tag: &Tag
     ) -> Result<(), error::Unspecified>,

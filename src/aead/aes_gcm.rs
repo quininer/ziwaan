@@ -32,7 +32,7 @@ pub static AES_128_GCM: Algorithm = Algorithm {
 
 /// AES-256 in GCM mode with 128-bit tags and 96 bit nonces.
 pub static AES_256_GCM: Algorithm = Algorithm {
-    key_len: AES_128_KEY_LEN,
+    key_len: AES_256_KEY_LEN,
     init: init_256,
     seal: aes_gcm_seal,
     open: aes_gcm_open,
@@ -91,7 +91,6 @@ fn aes_gcm_open(
     key: &KeyInner,
     nonce: Nonce,
     Aad(aad): Aad<&[u8]>,
-    in_prefix_len: usize,
     in_out: &mut [u8],
     tag: &Tag
 ) -> Result<(), error::Unspecified> {
@@ -100,14 +99,14 @@ fn aes_gcm_open(
             let nonce = <aead::Nonce<Aes128Gcm>>::from(*nonce.as_ref());
             let tag = <aead::Tag<Aes128Gcm>>::from(tag.0);
 
-            cipher.decrypt_in_place_detached(&nonce, aad, &mut in_out[in_prefix_len..], &tag)
+            cipher.decrypt_in_place_detached(&nonce, aad, in_out, &tag)
                 .map_err(|_| error::Unspecified)
         },
         KeyInner::AesGcm(Key::Aes256(cipher)) => {
             let nonce = <aead::Nonce<Aes256Gcm>>::from(*nonce.as_ref());
             let tag = <aead::Tag<Aes256Gcm>>::from(tag.0);
 
-            cipher.decrypt_in_place_detached(&nonce, aad, &mut in_out[in_prefix_len..], &tag)
+            cipher.decrypt_in_place_detached(&nonce, aad, in_out, &tag)
                 .map_err(|_| error::Unspecified)
         },
         _ => unreachable!()
