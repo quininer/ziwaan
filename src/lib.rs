@@ -39,14 +39,13 @@
 // internally.
 #![deny(missing_docs, unused_qualifications, variant_size_differences)]
 #![forbid(unused_results)]
-// #![no_std]
+#![no_std]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-/// a
 #[macro_use]
-pub mod debug;
+mod debug;
 
 #[macro_use]
 pub mod test;
@@ -55,7 +54,11 @@ mod bits;
 mod polyfill;
 mod ec;
 
-#[cfg_attr(feature = "openssl-backend", path = "openssl_rsa/mod.rs")]
+#[cfg(feature = "openssl-backend")]
+#[path = "openssl_rsa/mod.rs"]
+mod rsa;
+
+#[cfg(feature = "rust-crypto-backend")]
 mod rsa;
 
 pub mod error;

@@ -40,8 +40,6 @@ fn rsa_from_pkcs8_test() {
             let input = test_case.consume_bytes("Input");
             let error = test_case.consume_optional_string("Error");
 
-            dbg!(ziwaan::debug::HexStr(&input));
-
             match (signature::RsaKeyPair::from_pkcs8(&input), error) {
                 (Ok(_), None) => (),
                 (Err(e), None) => panic!("Failed with error \"{}\", but expected to succeed", e),
@@ -62,7 +60,7 @@ fn test_signature_rsa_pkcs1_sign() {
     test::run(
         #[cfg(feature = "openssl-backend")]
         test_file!("openssl_rsa_pkcs1_sign_tests.txt"),
-        #[cfg(not(feature = "openssl-backend"))]
+        #[cfg(feature = "rust-crypto-backend")]
         test_file!("rsa_pkcs1_sign_tests.txt"),
         |section, test_case| {
             assert_eq!(section, "");
@@ -99,7 +97,6 @@ fn test_signature_rsa_pkcs1_sign() {
     );
 }
 
-#[ignore]
 #[cfg(feature = "alloc")]
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", feature = "wasm32_c"), wasm_bindgen_test)]
@@ -132,7 +129,25 @@ fn test_signature_rsa_pss_sign() {
 
             let mut actual = vec![0u8; key_pair.public_modulus_len()];
             key_pair.sign(alg, &rng, &msg, actual.as_mut_slice())?;
-            assert_eq!(actual.as_slice() == &expected[..], result == "Pass");
+
+            if cfg!(feature = "openssl-backend") {
+                // openssl-backend cannot customize rng, cannot generate signature deterministically.
+                // so we only verify that the signature is valid.
+
+                let alg = match digest_name.as_ref() {
+                    "SHA256" => &signature::RSA_PSS_2048_8192_SHA256,
+                    "SHA384" => &signature::RSA_PSS_2048_8192_SHA384,
+                    "SHA512" => &signature::RSA_PSS_2048_8192_SHA512,
+                    _ => panic!("Unsupported digest: {}", digest_name),
+                };
+
+                let ret = signature::UnparsedPublicKey::new(alg, key_pair.public_key())
+                    .verify(&msg, &actual);
+                assert!(ret.is_ok());
+            } else {
+                assert_eq!(actual.as_slice() == &expected[..], result == "Pass");
+            }
+
             Ok(())
         },
     );
@@ -173,8 +188,8 @@ fn test_signature_rsa_pkcs1_verify() {
     test::run(
         #[cfg(feature = "openssl-backend")]
         test_file!("openssl_rsa_pkcs1_verify_tests.txt"),
-        #[cfg(not(feature = "openssl-backend"))]
-        test_file!("openssl_rsa_pkcs1_verify_tests.txt"),
+        #[cfg(feature = "rust-crypto-backend")]
+        test_file!("rsa_pkcs1_verify_tests.txt"),
         |section, test_case| {
             assert_eq!(section, "");
 

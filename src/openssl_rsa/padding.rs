@@ -12,11 +12,8 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use alloc::boxed::Box;
-use digest_09::DynDigest;
-use sha2_09::Digest as _;
 // use super::PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN;
-use crate::{bits, digest, error, io::der};
+use crate::digest;
 
 /// Common features of both RSA padding encoding and RSA padding verification.
 pub trait Padding: 'static + Sync + crate::sealed::Sealed + core::fmt::Debug {
