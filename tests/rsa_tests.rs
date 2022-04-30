@@ -40,6 +40,8 @@ fn rsa_from_pkcs8_test() {
             let input = test_case.consume_bytes("Input");
             let error = test_case.consume_optional_string("Error");
 
+            dbg!(ziwaan::debug::HexStr(&input));
+
             match (signature::RsaKeyPair::from_pkcs8(&input), error) {
                 (Ok(_), None) => (),
                 (Err(e), None) => panic!("Failed with error \"{}\", but expected to succeed", e),
@@ -58,6 +60,9 @@ fn rsa_from_pkcs8_test() {
 fn test_signature_rsa_pkcs1_sign() {
     let rng = rand::SystemRandom::new();
     test::run(
+        #[cfg(feature = "openssl-backend")]
+        test_file!("openssl_rsa_pkcs1_sign_tests.txt"),
+        #[cfg(not(feature = "openssl-backend"))]
         test_file!("rsa_pkcs1_sign_tests.txt"),
         |section, test_case| {
             assert_eq!(section, "");
@@ -94,6 +99,7 @@ fn test_signature_rsa_pkcs1_sign() {
     );
 }
 
+#[ignore]
 #[cfg(feature = "alloc")]
 #[test]
 #[cfg_attr(all(target_arch = "wasm32", feature = "wasm32_c"), wasm_bindgen_test)]
@@ -165,7 +171,10 @@ fn test_signature_rsa_pkcs1_verify() {
         (&signature::RSA_PKCS1_2048_8192_SHA512, 2048),
     ];
     test::run(
-        test_file!("rsa_pkcs1_verify_tests.txt"),
+        #[cfg(feature = "openssl-backend")]
+        test_file!("openssl_rsa_pkcs1_verify_tests.txt"),
+        #[cfg(not(feature = "openssl-backend"))]
+        test_file!("openssl_rsa_pkcs1_verify_tests.txt"),
         |section, test_case| {
             assert_eq!(section, "");
 
@@ -202,6 +211,9 @@ fn test_signature_rsa_pkcs1_verify() {
             let msg = test_case.consume_bytes("Msg");
             let sig = test_case.consume_bytes("Sig");
             let is_valid = test_case.consume_string("Result") == "P";
+
+            dbg!(&is_valid);
+
             for &(alg, min_bits) in params {
                 let width_ok = key_bits >= min_bits;
                 let actual_result =

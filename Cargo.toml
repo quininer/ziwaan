@@ -11,9 +11,11 @@ members = [ "ring" ]
 [features]
 default = [ "alloc" ]
 alloc = []
+openssl-backend = [ "openssl" ]
 
 [dependencies]
 untrusted = "0.7"
+openssl = { version = "0.10", optional = true }
 
 # aead
 aes = "0.8"
