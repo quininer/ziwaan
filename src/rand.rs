@@ -174,8 +174,10 @@ impl sealed::SecureRandom for SystemRandom {
 
 impl crate::sealed::Sealed for SystemRandom {}
 
+#[cfg(feature = "rust-crypto-backend")]
 pub(crate) struct RngCompat<'a>(pub(crate) &'a dyn SecureRandom);
 
+#[cfg(feature = "rust-crypto-backend")]
 impl elliptic_curve::rand_core::RngCore for RngCompat<'_> {
     fn next_u32(&mut self) -> u32 {
         let mut buf = [0; 4];
@@ -199,4 +201,5 @@ impl elliptic_curve::rand_core::RngCore for RngCompat<'_> {
     }
 }
 
+#[cfg(feature = "rust-crypto-backend")]
 impl elliptic_curve::rand_core::CryptoRng for RngCompat<'_> {}

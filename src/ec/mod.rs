@@ -59,4 +59,10 @@ pub const PKCS8_DOCUMENT_MAX_LEN: usize = 40 + SCALAR_MAX_BYTES + keys::PUBLIC_K
 
 pub mod curve25519;
 mod keys;
+
+#[cfg(feature = "openssl-backend")]
+#[path = "openssl_suite_b/mod.rs"]
+pub mod suite_b;
+
+#[cfg(feature = "rust-crypto-backend")]
 pub mod suite_b;

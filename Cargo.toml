@@ -11,12 +11,14 @@ members = [ "ring" ]
 [features]
 default = [ "alloc" ]
 alloc = []
-openssl-backend = [ "openssl" ]
+openssl-backend = [ "openssl", "openssl-sys", "foreign-types" ]
 rust-crypto-backend = [ "rsa", "digest_09", "sha-1_09" ]
 
 [dependencies]
 untrusted = "0.7"
 openssl = { version = "0.10", optional = true }
+openssl-sys = { version = "0.9", optional = true }
+foreign-types = { version = "0.3", optional = true }
 
 # aead
 aes = "0.8"
@@ -35,11 +37,15 @@ pbkdf2 = "0.10"
 curve25519-dalek = "3"
 ed25519-dalek = "1"
 x25519-dalek = "1"
-p256 = "0.10"
-p384 = "0.9"
-elliptic-curve = { version = "0.11", features = [ "ecdh" ] }
-ed25519 = "1"
-ecdsa = "0.13"
+
+# rust-crypto-backend ec
+p256 = { version = "0.10", optional = true }
+p384 = { version = "0.9", optional = true }
+elliptic-curve = { version = "0.11", features = [ "ecdh" ], optional = true }
+ed25519 = { version = "1", optional = true }
+ecdsa = { version = "0.13", optional = true }
+
+# rust-crypto-backend rsa
 rsa = { version = "0.5", optional = true }
 digest_09 = { package = "digest", version = "0.9", optional = true }
 sha-1_09 = { package = "sha-1", version = "0.9", optional = true }

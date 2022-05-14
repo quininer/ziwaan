@@ -262,6 +262,7 @@ pub use crate::ec::{
         verification::{EdDSAParameters, ED25519},
         ED25519_PUBLIC_KEY_LEN,
     },
+    /*
     suite_b::ecdsa::{
         signing::{
             EcdsaKeyPair, EcdsaSigningAlgorithm,
@@ -274,6 +275,7 @@ pub use crate::ec::{
             ECDSA_P384_SHA256_ASN1, ECDSA_P384_SHA384_ASN1, ECDSA_P384_SHA384_FIXED,
         },
     },
+    */
 };
 
 #[cfg(feature = "alloc")]
