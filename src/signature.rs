@@ -262,7 +262,6 @@ pub use crate::ec::{
         verification::{EdDSAParameters, ED25519},
         ED25519_PUBLIC_KEY_LEN,
     },
-    /*
     suite_b::ecdsa::{
         signing::{
             EcdsaKeyPair, EcdsaSigningAlgorithm,
@@ -275,7 +274,6 @@ pub use crate::ec::{
             ECDSA_P384_SHA256_ASN1, ECDSA_P384_SHA384_ASN1, ECDSA_P384_SHA384_FIXED,
         },
     },
-    */
 };
 
 #[cfg(feature = "alloc")]
@@ -327,6 +325,19 @@ impl Signature {
         };
         r.len = fill(&mut r.value);
         r
+    }
+
+    // Panics if `value` is too long.
+    pub(crate) fn try_new<F>(fill: F) -> Result<Self, error::Unspecified>
+    where
+        F: FnOnce(&mut [u8; MAX_LEN]) -> Result<usize, error::Unspecified>,
+    {
+        let mut r = Self {
+            value: [0; MAX_LEN],
+            len: 0,
+        };
+        r.len = fill(&mut r.value)?;
+        Ok(r)
     }
 }
 

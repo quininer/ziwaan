@@ -89,5 +89,6 @@ pub(crate) fn key_pair_from_bytes(
 }
 
 mod curve;
+mod private_key;
 pub mod ecdh;
-// pub mod ecdsa;
+pub mod ecdsa;
