@@ -68,13 +68,14 @@ fn p256_ecdh(
         my_private_key.to_nonzero_scalar(),
         peer_public_key.as_affine()
     );
-    let secret_len = shared_secret.as_bytes().len();
+    let shared_secret = shared_secret.raw_secret_bytes();
+    let secret_len = shared_secret.len();
 
     if out.len() < secret_len {
         return Err(error::Unspecified);
     }
 
-    out[..secret_len].copy_from_slice(shared_secret.as_bytes().as_slice());
+    out[..secret_len].copy_from_slice(shared_secret.as_slice());
 
     Ok(())
 }

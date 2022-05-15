@@ -81,6 +81,7 @@ pub(crate) mod sealed {
 
         /// Into boxed RngCore
         #[cfg(feature = "alloc")]
+        #[cfg(feature = "rust-crypto-backend")]
         fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore>;
     }
 

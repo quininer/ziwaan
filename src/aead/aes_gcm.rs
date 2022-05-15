@@ -50,13 +50,13 @@ const AES_256_KEY_LEN: usize = <<Aes256Gcm as aead::NewAead>::KeySize as Unsigne
 
 fn init_128(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
     let key: &[u8; AES_128_KEY_LEN] = key.try_into()?;
-    let key = aes_gcm::Key::from_slice(key);
+    let key = <aes_gcm::Key<Aes128Gcm>>::from_slice(key);
     Ok(KeyInner::AesGcm(Key::Aes128(Aes128Gcm::new(key))))
 }
 
 fn init_256(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
     let key: &[u8; AES_256_KEY_LEN] = key.try_into()?;
-    let key = aes_gcm::Key::from_slice(key);
+    let key = <aes_gcm::Key<Aes256Gcm>>::from_slice(key);
     Ok(KeyInner::AesGcm(Key::Aes256(Aes256Gcm::new(key))))
 }
 

@@ -13,8 +13,8 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 use alloc::boxed::Box;
-use digest_09::DynDigest;
-use sha2_09::Digest as _;
+use sha2::digest::DynDigest;
+use sha2::Digest as _;
 // use super::PUBLIC_KEY_PUBLIC_MODULUS_MAX_LEN;
 use crate::{bits, digest, error, io::der};
 
@@ -58,10 +58,10 @@ impl RsaEncoding for PKCS1 {
 
     fn digest(&self) -> Box<dyn DynDigest> {
         match self.0 {
-            rsa::hash::Hash::SHA1 => Box::new(sha_1_09::Sha1::new()),
-            rsa::hash::Hash::SHA2_256 => Box::new(sha2_09::Sha256::new()),
-            rsa::hash::Hash::SHA2_384 => Box::new(sha2_09::Sha384::new()),
-            rsa::hash::Hash::SHA2_512 => Box::new(sha2_09::Sha512::new()),
+            rsa::hash::Hash::SHA1 => Box::new(sha1::Sha1::new()),
+            rsa::hash::Hash::SHA2_256 => Box::new(sha2::Sha256::new()),
+            rsa::hash::Hash::SHA2_384 => Box::new(sha2::Sha384::new()),
+            rsa::hash::Hash::SHA2_512 => Box::new(sha2::Sha512::new()),
             _ => unreachable!()
         }
     }
@@ -141,21 +141,21 @@ macro_rules! rsa_pss_padding {
 
 rsa_pss_padding!(
     RSA_PSS_SHA256,
-    || Box::new(sha2_09::Sha256::new()),
+    || Box::new(sha2::Sha256::new()),
     "RSA PSS padding using SHA-256 for RSA signatures.\n\nSee
                  \"`RSA_PSS_*` Details\" in `ring::signature`'s module-level
                  documentation for more details."
 );
 rsa_pss_padding!(
     RSA_PSS_SHA384,
-    || Box::new(sha2_09::Sha384::new()),
+    || Box::new(sha2::Sha384::new()),
     "RSA PSS padding using SHA-384 for RSA signatures.\n\nSee
                  \"`RSA_PSS_*` Details\" in `ring::signature`'s module-level
                  documentation for more details."
 );
 rsa_pss_padding!(
     RSA_PSS_SHA512,
-    || Box::new(sha2_09::Sha512::new()),
+    || Box::new(sha2::Sha512::new()),
     "RSA PSS padding using SHA-512 for RSA signatures.\n\nSee
                  \"`RSA_PSS_*` Details\" in `ring::signature`'s module-level
                  documentation for more details."

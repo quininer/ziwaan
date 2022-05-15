@@ -153,17 +153,18 @@ impl RsaKeyPair {
     /// [NIST SP-800-56B rev. 1]:
     ///     http://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-56Br1.pdf
     pub fn from_der(input: &[u8]) -> Result<Self, KeyRejected> {
-        use rsa::pkcs1::FromRsaPrivateKey;
+        use rsa::pkcs1::{ DecodeRsaPrivateKey, der::Document };
         use rsa::{ PublicKeyParts, BigUint };
 
         let rsa_doc = rsa::pkcs1::RsaPrivateKeyDocument::from_pkcs1_der(input)
             .map_err(|_| KeyRejected::invalid_encoding())?;
 
-        if rsa_doc.private_key().version != rsa::pkcs1::Version::TwoPrime {
+        let rsa_sk = rsa_doc.decode();
+        if rsa_sk.version() != rsa::pkcs1::Version::TwoPrime {
             return Err(KeyRejected::version_not_supported());
         }
 
-        let private_key = rsa::RsaPrivateKey::from_pkcs1_private_key(rsa_doc.private_key())
+        let private_key = rsa::RsaPrivateKey::from_pkcs1_der(input)
             .map_err(|_| KeyRejected::invalid_encoding())?;
         private_key.validate()
             .map_err(|_| KeyRejected::invalid_component())?;
@@ -189,7 +190,9 @@ impl RsaKeyPair {
             return Err(KeyRejected::private_modulus_len_not_multiple_of_512_bits());
         }
 
-        let public_key = RsaSubjectPublicKey(rsa_doc.private_key().public_key().to_der());
+        let public_key = rsa_sk.public_key().to_der()
+            .map_err(|_| KeyRejected::inconsistent_components())?;
+        let public_key = RsaSubjectPublicKey(public_key);
 
         Ok(RsaKeyPair { private_key, public_key })
     }
@@ -198,8 +201,10 @@ impl RsaKeyPair {
     ///
     /// A signature has the same length as the public modulus.
     pub fn public_modulus_len(&self) -> usize {
+        use rsa::pkcs1::der::Document;
+
         self.public_key.0
-            .public_key()
+            .decode()
             .modulus
             .as_bytes()
             .len()
@@ -229,7 +234,9 @@ derive_debug_self_as_ref_hex_bytes!(RsaSubjectPublicKey);
 impl RsaSubjectPublicKey {
     /// The public modulus (n).
     pub fn modulus(&self) -> io::Positive {
-        let buf = self.0.public_key()
+        use rsa::pkcs1::der::Document;
+
+        let buf = self.0.decode()
             .modulus
             .as_bytes();
         io::Positive::new_non_empty_without_leading_zeros(untrusted::Input::from(buf))
@@ -237,7 +244,9 @@ impl RsaSubjectPublicKey {
 
     /// The public exponent (e).
     pub fn exponent(&self) -> io::Positive {
-        let buf = self.0.public_key()
+        use rsa::pkcs1::der::Document;
+
+        let buf = self.0.decode()
             .public_exponent
             .as_bytes();
         io::Positive::new_non_empty_without_leading_zeros(untrusted::Input::from(buf))

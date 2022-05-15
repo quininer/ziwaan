@@ -104,21 +104,44 @@ suite_b_curve!(
     p384_public_from_private
 );
 
-// TODO p384 not implement
 fn p384_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
-    Err(error::Unspecified)
+    <elliptic_curve::SecretKey<p384::NistP384>>::from_be_bytes(bytes)
+        .map(drop)
+        .map_err(|_| error::Unspecified)
 }
 
 fn p384_generate_private_key(
     rng: &dyn rand::SecureRandom,
     out: &mut [u8],
 ) -> Result<(), error::Unspecified> {
-    Err(error::Unspecified)
+    if out.len() < P384.elem_scalar_seed_len {
+        return Err(error::Unspecified);
+    }
+
+    let mut rng = rand::RngCompat(rng);
+    let sk = <elliptic_curve::SecretKey<p384::NistP384>>::random(&mut rng);
+    out[..P384.elem_scalar_seed_len].copy_from_slice(sk.to_be_bytes().as_slice());
+
+    Ok(())
 }
 
 fn p384_public_from_private(
     public_out: &mut [u8],
     private_key: &ec::Seed,
 ) -> Result<(), error::Unspecified> {
-    Err(error::Unspecified)
+    use elliptic_curve::sec1::EncodedPoint;
+
+    if public_out.len() < P384.public_key_len {
+        return Err(error::Unspecified);
+    }
+
+    let private_key =
+        <elliptic_curve::SecretKey<p384::NistP384>>::from_be_bytes(&private_key.bytes_less_safe())
+            .map_err(|_| error::Unspecified)?;
+    let public_key = private_key.public_key();
+    let public_key = <EncodedPoint<p384::NistP384>>::from(public_key);
+
+    public_out[..P384.public_key_len].copy_from_slice(public_key.as_bytes());
+
+    Ok(())
 }

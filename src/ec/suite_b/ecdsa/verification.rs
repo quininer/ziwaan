@@ -67,7 +67,7 @@ impl sealed::Sealed for EcdsaVerificationAlgorithm {}
 /// documentation for more details.
 pub static ECDSA_P256_SHA256_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
     verify: p256_sha256_verify,
-    parse_format: p256_sig_fixed_parse,
+    parse_format: sig_fixed_parse,
     id: AlgorithmID::ECDSA_P256_SHA256_FIXED,
 };
 
@@ -102,7 +102,7 @@ fn p256_sha256_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     -> Result<(), error::Unspecified>
 {
     use p256::ecdsa::signature::{ DigestVerifier, Signature as _ };
-    use sha2_09::{ Digest, Sha256 };
+    use sha2::{ Digest, Sha256 };
 
     let peer_public_key =
         <p256::ecdsa::VerifyingKey>::from_sec1_bytes(public_key)
@@ -110,7 +110,7 @@ fn p256_sha256_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     let sig = <p256::ecdsa::Signature>::from_bytes(sig.as_ref())
         .map_err(|_| error::Unspecified)?;
 
-    peer_public_key.verify_digest(Sha256::new().chain(msg), &sig)
+    peer_public_key.verify_digest(Sha256::new().chain_update(msg), &sig)
         .map_err(|_| error::Unspecified)
 }
 
@@ -118,28 +118,27 @@ fn p256_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     -> Result<(), error::Unspecified>
 {
     use p256::ecdsa::signature::{ DigestVerifier, Signature as _ };
-    use sha2_09::{ digest::{ self, Digest }, Sha384 };
-    use sha2_09::digest::generic_array::GenericArray;
+    use sha2::{ digest::{ self, Digest }, Sha384 };
+    use sha2::digest::generic_array::GenericArray;
 
     #[derive(Clone, Default)]
     struct Sha384_256(Sha384);
 
+    impl digest::HashMarker for Sha384_256 {}
+
+    impl digest::OutputSizeUser for Sha384_256 {
+        type OutputSize = digest::consts::U32;
+    }
+
     impl digest::Update for Sha384_256 {
-        fn update(&mut self, data: impl AsRef<[u8]>) {
-            digest::Update::update(&mut self.0, data.as_ref());
+        fn update(&mut self, data: &[u8]) {
+            digest::Update::update(&mut self.0, data);
         }
     }
 
     impl digest::FixedOutput for Sha384_256 {
-        type OutputSize = digest::consts::U32;
-
         fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
             let output = self.0.finalize();
-            out.copy_from_slice(&output[..32]);
-        }
-
-        fn finalize_into_reset(&mut self, out: &mut GenericArray<u8, Self::OutputSize>) {
-            let output = self.0.finalize_reset();
             out.copy_from_slice(&output[..32]);
         }
     }
@@ -156,19 +155,19 @@ fn p256_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     let sig = <p256::ecdsa::Signature>::from_bytes(sig.as_ref())
         .map_err(|_| error::Unspecified)?;
 
-    peer_public_key.verify_digest(Sha384_256(Sha384::new()).chain(msg), &sig)
+    peer_public_key.verify_digest(Sha384_256(Sha384::new()).chain_update(msg), &sig)
         .map_err(|_| error::Unspecified)
 }
 
-fn p256_sig_fixed_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
-    if sig.len() <= signature::MAX_LEN {
-        Ok(signature::Signature::new(|bytes| {
+fn sig_fixed_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
+    signature::Signature::try_new(|bytes| {
+        if bytes.len() >= sig.len() {
             bytes[..sig.len()].copy_from_slice(sig);
-            sig.len()
-        }))
-    } else {
-        Err(error::Unspecified)
-    }
+            Ok(sig.len())
+        } else {
+            Err(error::Unspecified)
+        }
+    })
 }
 
 fn p256_sig_asn1_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
@@ -176,10 +175,14 @@ fn p256_sig_asn1_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspec
         .map_err(|_| error::Unspecified)?;
     let sig = sig.as_ref();
 
-    Ok(signature::Signature::new(|bytes| {
-        bytes[..sig.len()].copy_from_slice(sig);
-        sig.len()
-    }))
+    signature::Signature::try_new(|bytes| {
+        if bytes.len() >= sig.len() {
+            bytes[..sig.len()].copy_from_slice(sig);
+            Ok(sig.len())
+        } else {
+            Err(error::Unspecified)
+        }
+    })
 }
 
 /// Verification of fixed-length (PKCS#11 style) ECDSA signatures using the
@@ -188,8 +191,8 @@ fn p256_sig_asn1_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspec
 /// See "`ECDSA_*_FIXED` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    verify: dummy_verify,
-    parse_format: dummy_parse,
+    verify: p384_sha384_verify,
+    parse_format: sig_fixed_parse,
     id: AlgorithmID::ECDSA_P384_SHA384_FIXED,
 };
 
@@ -204,8 +207,8 @@ pub static ECDSA_P384_SHA384_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificati
 /// See "`ECDSA_*_ASN1` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA256_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    verify: dummy_verify,
-    parse_format: dummy_parse,
+    verify: p384_sha384_verify,
+    parse_format: p384_sig_asn1_parse,
     id: AlgorithmID::ECDSA_P384_SHA256_ASN1,
 };
 
@@ -215,17 +218,38 @@ pub static ECDSA_P384_SHA256_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificatio
 /// See "`ECDSA_*_ASN1` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    verify: dummy_verify,
-    parse_format: dummy_parse,
+    verify: p384_sha384_verify,
+    parse_format: p384_sig_asn1_parse,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1,
 };
 
-fn dummy_verify(_public_key: &[u8], _msg: &[u8], _sig: &signature::Signature)
+fn p384_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     -> Result<(), error::Unspecified>
 {
-    Err(error::Unspecified)
+    use p384::ecdsa::signature::{ DigestVerifier, Signature as _ };
+    use sha2::{ Digest, Sha384 };
+
+    let peer_public_key =
+        <p384::ecdsa::VerifyingKey>::from_sec1_bytes(public_key)
+            .map_err(|_| error::Unspecified)?;
+    let sig = <p384::ecdsa::Signature>::from_bytes(sig.as_ref())
+        .map_err(|_| error::Unspecified)?;
+
+    peer_public_key.verify_digest(Sha384::new().chain_update(msg), &sig)
+        .map_err(|_| error::Unspecified)
 }
 
-fn dummy_parse(_sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
-    Err(error::Unspecified)
+fn p384_sig_asn1_parse(sig: &[u8]) -> Result<signature::Signature, error::Unspecified> {
+    let sig = <p384::ecdsa::Signature>::from_der(sig)
+        .map_err(|_| error::Unspecified)?;
+    let sig = sig.as_ref();
+
+    signature::Signature::try_new(|bytes| {
+        if bytes.len() >= sig.len() {
+            bytes[..sig.len()].copy_from_slice(sig);
+            Ok(sig.len())
+        } else {
+            Err(error::Unspecified)
+        }
+    })
 }

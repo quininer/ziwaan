@@ -188,7 +188,7 @@ impl AsRef<[u8]> for PublicKey {
 pub static ECDSA_P256_SHA256_FIXED_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::P256,
     sign: p256_sha256_sign,
-    format_sig: p256_format_sig_fixed,
+    format_sig: format_sig_fixed,
     pkcs8_template: &EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE,
     id: AlgorithmID::ECDSA_P256_SHA256_FIXED_SIGNING,
 };
@@ -216,7 +216,7 @@ fn p256_sha256_sign(seed: &ec::Seed, rng: &dyn rand::SecureRandom, msg: &[u8])
     Err(error::Unspecified)
 }
 
-fn p256_format_sig_fixed(sig: signature::Signature) -> signature::Signature {
+fn format_sig_fixed(sig: signature::Signature) -> signature::Signature {
     sig
 }
 
@@ -253,8 +253,8 @@ fn p256_format_sig_asn1(sig: signature::Signature) -> signature::Signature {
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_FIXED_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::P384,
-    sign: dummy_sign,
-    format_sig: dummy_format,
+    sign: p384_sha384_sign,
+    format_sig: format_sig_fixed,
     pkcs8_template: &EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE,
     id: AlgorithmID::ECDSA_P384_SHA384_FIXED_SIGNING,
 };
@@ -266,20 +266,49 @@ pub static ECDSA_P384_SHA384_FIXED_SIGNING: EcdsaSigningAlgorithm = EcdsaSigning
 /// documentation for more details.
 pub static ECDSA_P384_SHA384_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::P384,
-    sign: dummy_sign,
-    format_sig: dummy_format,
+    sign: p384_sha384_sign,
+    format_sig: p384_format_sig_asn1,
     pkcs8_template: &EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1_SIGNING,
 };
 
-fn dummy_sign(_seed: &ec::Seed, _rng: &dyn rand::SecureRandom, _msg: &[u8])
+fn p384_sha384_sign(seed: &ec::Seed, rng: &dyn rand::SecureRandom, msg: &[u8])
     -> Result<signature::Signature, error::Unspecified>
 {
+    use p384::ecdsa::signature::RandomizedSigner;
+    use p384::ecdsa::signature::RandomizedDigestSigner;
+    use sha2::Sha384;
+    use sha2::Digest;
+
+    let sk = <p384::ecdsa::SigningKey>::from_bytes(seed.bytes_less_safe())
+        .map_err(|_| error::Unspecified)?;
+
+    let mut rng = rand::RngCompat(rng);
+
+    for _ in 0..100 {
+        if let Ok(sig) = sk.try_sign_digest_with_rng(&mut rng, Sha384::default().chain_update(msg)) {
+            return Ok(signature::Signature::new(|sig_bytes| {
+                let sig = sig.as_ref();
+                sig_bytes[..sig.len()].copy_from_slice(sig);
+                sig.len()
+            }));
+        }
+    }
+
     Err(error::Unspecified)
 }
 
-fn dummy_format(sig: signature::Signature) -> signature::Signature {
-    sig
+fn p384_format_sig_asn1(sig: signature::Signature) -> signature::Signature {
+    use core::convert::TryInto;
+
+    let sig: p384::ecdsa::Signature = sig.as_ref().try_into().unwrap();
+    let sig = sig.to_der();
+
+    signature::Signature::new(|bytes| {
+        let sig = sig.as_ref();
+        bytes[..sig.len()].copy_from_slice(sig);
+        sig.len()
+    })
 }
 
 static EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Template {

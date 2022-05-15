@@ -27,7 +27,7 @@ impl signature::VerificationAlgorithm for RsaParameters {
         msg: untrusted::Input,
         signature: untrusted::Input,
     ) -> Result<(), error::Unspecified> {
-        use rsa::pkcs1::FromRsaPublicKey;
+        use rsa::pkcs1::{ DecodeRsaPublicKey, der::Document };
 
         let public_key =
             rsa::pkcs1::RsaPublicKeyDocument::from_pkcs1_der(public_key.as_slice_less_safe())
@@ -35,7 +35,7 @@ impl signature::VerificationAlgorithm for RsaParameters {
 
         verify(
             self,
-            public_key.public_key(),
+            public_key.decode(),
             msg.as_slice_less_safe(),
             signature.as_slice_less_safe()
         )
@@ -223,7 +223,7 @@ fn verify(
     signature: &[u8],
 ) -> Result<(), error::Unspecified> {
     use rsa::{ PublicKeyParts, PublicKey, BigUint };
-    use rsa::pkcs1::FromRsaPublicKey;
+    use rsa::pkcs1::DecodeRsaPrivateKey;
 
     let public_key = {
         let n = BigUint::from_bytes_be(public_key.modulus.as_bytes());

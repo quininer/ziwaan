@@ -132,8 +132,6 @@ fn signature_ecdsa_verify_asn1_test() {
                 }
             };
 
-            dbg!(alg);
-
             let actual_result =
                 signature::UnparsedPublicKey::new(alg, &public_key).verify(&msg, &sig);
             assert_eq!(actual_result.is_ok(), is_valid);
