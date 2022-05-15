@@ -207,7 +207,7 @@ pub static ECDSA_P384_SHA384_FIXED: EcdsaVerificationAlgorithm = EcdsaVerificati
 /// See "`ECDSA_*_ASN1` Details" in `ring::signature`'s module-level
 /// documentation for more details.
 pub static ECDSA_P384_SHA256_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
-    verify: p384_sha384_verify,
+    verify: p384_sha256_verify,
     parse_format: p384_sig_asn1_parse,
     id: AlgorithmID::ECDSA_P384_SHA256_ASN1,
 };
@@ -222,6 +222,54 @@ pub static ECDSA_P384_SHA384_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificatio
     parse_format: p384_sig_asn1_parse,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1,
 };
+
+fn p384_sha256_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
+    -> Result<(), error::Unspecified>
+{
+    use p384::ecdsa::signature::{ DigestVerifier, Signature as _ };
+    use sha2::{ digest::{ self, Digest }, Sha256 };
+    use sha2::digest::generic_array::GenericArray;
+
+    #[derive(Clone, Default)]
+    struct Sha256_384(Sha256);
+
+    impl digest::HashMarker for Sha256_384 {}
+
+    impl digest::OutputSizeUser for Sha256_384 {
+        type OutputSize = digest::consts::U48;
+    }
+
+    impl digest::Update for Sha256_384 {
+        fn update(&mut self, data: &[u8]) {
+            digest::Update::update(&mut self.0, data);
+        }
+    }
+
+    impl digest::FixedOutput for Sha256_384 {
+        fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
+            let output = self.0.finalize();
+            out[..32].copy_from_slice(&output);
+            for b in &mut out[32..] {
+                *b = 0;
+            }
+        }
+    }
+
+    impl digest::Reset for Sha256_384 {
+        fn reset(&mut self) {
+            digest::Reset::reset(&mut self.0);
+        }
+    }
+
+    let peer_public_key =
+        <p384::ecdsa::VerifyingKey>::from_sec1_bytes(public_key)
+            .map_err(|_| error::Unspecified)?;
+    let sig = <p384::ecdsa::Signature>::from_bytes(sig.as_ref())
+        .map_err(|_| error::Unspecified)?;
+
+    peer_public_key.verify_digest(Sha256_384::default().chain_update(msg), &sig)
+        .map_err(|_| error::Unspecified)
+}
 
 fn p384_sha384_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     -> Result<(), error::Unspecified>

@@ -538,6 +538,7 @@ pub mod rand {
         }
 
         #[cfg(feature = "alloc")]
+        #[cfg(feature = "rust-crypto-backend")]
         fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
             struct CompatRng(Box<[u8]>);
 
@@ -598,6 +599,7 @@ pub mod rand {
         }
 
         #[cfg(feature = "alloc")]
+        #[cfg(feature = "rust-crypto-backend")]
         fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
             todo!()
         }

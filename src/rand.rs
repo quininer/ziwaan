@@ -168,6 +168,7 @@ impl sealed::SecureRandom for SystemRandom {
     }
 
     #[cfg(feature = "alloc")]
+    #[cfg(feature = "rust-crypto-backend")]
     fn clone_into_boxed_rngcore(&self) -> Box<dyn rand_core_06::RngCore> {
         Box::new(rand_core_06::OsRng)
     }
