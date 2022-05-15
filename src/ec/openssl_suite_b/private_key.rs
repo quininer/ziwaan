@@ -79,7 +79,7 @@ impl PrivateKey {
 
     pub fn sign(&self, hash: &MdRef, message: &[u8], sig: &mut [u8]) -> Result<usize, error::Unspecified> {
         unsafe {
-            let mut ctx = openssl::md_ctx::MdCtx::new().map_err(|_| error::Unspecified)?;
+            let ctx = openssl::md_ctx::MdCtx::new().map_err(|_| error::Unspecified)?;
 
             openssl_cvt!(openssl_sys::EVP_DigestSignInit(
                 ctx.as_ptr(),

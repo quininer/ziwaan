@@ -57,7 +57,7 @@ fn x25519_public_from_private(
     public_out: &mut [u8],
     private_key: &ec::Seed,
 ) -> Result<(), error::Unspecified> {
-    let mut public_out: &mut [u8; PUBLIC_KEY_LEN] = public_out.try_into()?;
+    let public_out: &mut [u8; PUBLIC_KEY_LEN] = public_out.try_into()?;
 
     let private_key: [u8; SCALAR_LEN] = private_key.bytes_less_safe().try_into()?;
     let private_key = x25519_dalek::StaticSecret::from(private_key);

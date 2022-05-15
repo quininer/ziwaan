@@ -108,8 +108,6 @@ fn verify(group: &EcGroupRef, public_key: &[u8], hash: MessageDigest, msg: &[u8]
     use openssl::pkey::PKey;
     use openssl::sign::Verifier;
 
-    dbg!();
-
     let public_key = {
         let mut ctx = openssl::bn::BigNumContext::new()
             .map_err(|_| error::Unspecified)?;
@@ -119,16 +117,12 @@ fn verify(group: &EcGroupRef, public_key: &[u8], hash: MessageDigest, msg: &[u8]
             .map_err(|_| error::Unspecified)?;
         PKey::from_ec_key(public_key).map_err(|_| error::Unspecified)?
     };
-    dbg!();
 
     let mut verifier = Verifier::new(hash, &public_key)
         .map_err(|_| error::Unspecified)?;
-
-    dbg!();
-    let ret = dbg!(verifier.verify_oneshot(sig.as_ref(), msg))
+    let ret = verifier.verify_oneshot(sig.as_ref(), msg)
         .map_err(|_| error::Unspecified)?;
 
-    dbg!();
     if ret {
         Ok(())
     } else {
