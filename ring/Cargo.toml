@@ -13,4 +13,4 @@ std = []
 wasm32_c = []
 
 [dependencies]
-ziwaan = { path = "..", default-features = false }
+ziwaan = { path = "..", default-features = false, features = [ "rust-crypto-backend" ] }
