@@ -13,7 +13,7 @@ Warning, this is just a toy. You should not use it in a production environment.
 |digest (and more) | 5| \_|
 |curve25519 | 5| \_|
 |p256 | 3| 4|
-|p384 | 0.5| 4|
+|p384 | 1| 4|
 |rsa | 1| 4|
 
 * The content of the table is a subjective completion score, on a scale of 0 to 5, with higher values representing higher completion.

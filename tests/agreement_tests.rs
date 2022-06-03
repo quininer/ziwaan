@@ -63,11 +63,7 @@ fn agreement_traits() {
 fn agreement_agree_ephemeral() {
     let rng = rand::SystemRandom::new();
 
-    #[cfg(not(feature = "openssl-backend"))]
     let test_file = test_file!("agreement_tests.txt");
-
-    #[cfg(feature = "openssl-backend")]
-    let test_file = test_file!("openssl_agreement_tests.txt");
 
     test::run(test_file, |section, test_case| {
         assert_eq!(section, "");
