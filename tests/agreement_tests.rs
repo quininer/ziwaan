@@ -95,6 +95,7 @@ fn agreement_agree_ephemeral() {
                         assert_eq!(key_material, &output[..]);
                         Ok(())
                     });
+
                 assert_eq!(result, Ok(()));
             }
 

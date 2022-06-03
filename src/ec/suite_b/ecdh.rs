@@ -92,5 +92,27 @@ fn p384_ecdh(
     my_private_key: &ec::Seed,
     peer_public_key: untrusted::Input,
 ) -> Result<(), error::Unspecified> {
-    Err(error::Unspecified)
+    use elliptic_curve::sec1::{ EncodedPoint, FromEncodedPoint };
+
+    let my_private_key =
+        <elliptic_curve::SecretKey<p384::NistP384>>::from_be_bytes(&my_private_key.bytes_less_safe())
+            .map_err(|_| error::Unspecified)?;
+    let peer_public_key =
+        <elliptic_curve::PublicKey<p384::NistP384>>::from_sec1_bytes(peer_public_key.as_slice_less_safe())
+            .map_err(|_| error::Unspecified)?;
+
+    let shared_secret = elliptic_curve::ecdh::diffie_hellman(
+        my_private_key.to_nonzero_scalar(),
+        peer_public_key.as_affine()
+    );
+    let shared_secret = shared_secret.raw_secret_bytes();
+    let secret_len = shared_secret.len();
+
+    if out.len() < secret_len {
+        return Err(error::Unspecified);
+    }
+
+    out[..secret_len].copy_from_slice(shared_secret.as_slice());
+
+    Ok(())
 }
