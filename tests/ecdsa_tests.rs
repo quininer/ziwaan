@@ -166,8 +166,6 @@ fn signature_ecdsa_verify_fixed_test() {
 
             let is_valid = expected_result == "P (0 )";
 
-            dbg!(curve_name, digest_name);
-
             let actual_result =
                 signature::UnparsedPublicKey::new(alg, &public_key).verify(&msg, &sig);
             assert_eq!(actual_result.is_ok(), is_valid);

@@ -248,8 +248,8 @@ fn p384_sha256_verify(public_key: &[u8], msg: &[u8], sig: &signature::Signature)
     impl digest::FixedOutput for Sha256_384 {
         fn finalize_into(self, out: &mut GenericArray<u8, Self::OutputSize>) {
             let output = self.0.finalize();
-            out[..32].copy_from_slice(&output);
-            for b in &mut out[32..] {
+            out[16..].copy_from_slice(&output);
+            for b in &mut out[..16] {
                 *b = 0;
             }
         }
