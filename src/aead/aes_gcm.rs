@@ -17,7 +17,7 @@ use crate::error;
 use crate::aead::{ KeyInner, Algorithm, AlgorithmID };
 use core::convert::TryInto;
 use aes_gcm::{ Aes128Gcm, Aes256Gcm };
-use aes_gcm::aead::{ self, NewAead, AeadInPlace };
+use aes_gcm::aead::{ self, KeyInit, AeadInPlace };
 use aes_gcm::aead::generic_array::typenum::Unsigned;
 
 /// AES-128 in GCM mode with 128-bit tags and 96 bit nonces.
@@ -45,8 +45,8 @@ pub enum Key {
     Aes256(Aes256Gcm)
 }
 
-const AES_128_KEY_LEN: usize = <<Aes128Gcm as aead::NewAead>::KeySize as Unsigned>::USIZE;
-const AES_256_KEY_LEN: usize = <<Aes256Gcm as aead::NewAead>::KeySize as Unsigned>::USIZE;
+const AES_128_KEY_LEN: usize = <<Aes128Gcm as aead::KeySizeUser>::KeySize as Unsigned>::USIZE;
+const AES_256_KEY_LEN: usize = <<Aes256Gcm as aead::KeySizeUser>::KeySize as Unsigned>::USIZE;
 
 fn init_128(key: &[u8]) -> Result<KeyInner, error::Unspecified> {
     let key: &[u8; AES_128_KEY_LEN] = key.try_into()?;

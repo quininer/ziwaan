@@ -17,7 +17,7 @@ use crate::error;
 use crate::aead::{ KeyInner, Algorithm, AlgorithmID };
 use core::convert::TryInto;
 use chacha20poly1305::ChaCha20Poly1305;
-use chacha20poly1305::aead::{ self, NewAead, AeadInPlace };
+use chacha20poly1305::aead::{ self, KeyInit, AeadInPlace };
 use chacha20poly1305::aead::generic_array::typenum::Unsigned;
 
 /// ChaCha20-Poly1305 as described in [RFC 7539].
@@ -34,7 +34,7 @@ pub static CHACHA20_POLY1305: Algorithm = Algorithm {
     max_input_len: super::max_input_len(64, 1),
 };
 
-const KEY_LEN: usize = <<ChaCha20Poly1305 as aead::NewAead>::KeySize as Unsigned>::USIZE;
+const KEY_LEN: usize = <<ChaCha20Poly1305 as aead::KeySizeUser>::KeySize as Unsigned>::USIZE;
 
 /// Copies |key| into |ctx_buf|.
 fn chacha20_poly1305_init(
